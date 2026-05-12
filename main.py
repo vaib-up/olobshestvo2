@@ -7,7 +7,7 @@ from aiogram.types import (
 )
 from aiogram.filters import CommandStart
 
-TOKEN = "8750895420:AAEAN9K_t7adv0hFc-nKeryySgxasNF_B44"
+TOKEN = "8764668936:AAH9YkCBT9ZGHk9U9C1nlk9pPnIbsI6DOQw"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -41,6 +41,7 @@ def get_subsection_keyboard(section_code: str):
         inline_keyboard=[
             [InlineKeyboardButton(text="📝 Тесты - Выпуск №1", callback_data=f"{section_code}_test1")],
             [InlineKeyboardButton(text="📝 Тесты - Выпуск №2", callback_data=f"{section_code}_test2")],
+            [InlineKeyboardButton(text="📝 Тесты - Выпуск №3", callback_data=f"{section_code}_test3")],
             [InlineKeyboardButton(text="↩️ К разделам", callback_data="back_sections")]
         ]
     )
