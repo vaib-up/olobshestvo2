@@ -23,7 +23,7 @@ def load_tests():
 TESTS = load_tests()
 
 # {user_id: {"test_id": str, "type": str, "current": int, "score": int, "total": int}}
-user_progress: dict[int, dict] = {}
+user_progress = {}
 
 # ========== КЛАВИАТУРЫ ==========
 
