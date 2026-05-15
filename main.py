@@ -421,13 +421,16 @@ async def answer_handler(callback: CallbackQuery):
         return
 
     questions = TESTS[test_id][q_type]
-    correct_ans = questions[q_num]["correct"]
+    correct_ans_raw = questions[q_num]["correct"]
 
-    if user_ans == correct_ans:
+    # нормализуем и ответ пользователя, и правильный ответ:
+    user_norm = str(user_ans).strip().lower()
+    correct_norm = str(correct_ans_raw).strip().lower()
+
+    if user_norm == correct_norm:
         progress["score"] += 1
     else:
-        # сохраняем ошибку: номер вопроса, ответ пользователя, правильный ответ
-        progress["wrong"].append((q_num, user_ans, correct_ans))
+        progress["wrong"].append((q_num, user_ans, correct_ans_raw))
 
     progress["current"] += 1
     user_progress[user_id] = progress
@@ -481,10 +484,14 @@ async def answer_handler(callback: CallbackQuery):
             lines = ["Ошибки в этом прохождении:"]
             for bad_q_num, bad_user_ans, bad_correct_ans in wrong:
                 q_text = questions[bad_q_num]["question"]
+                # приводим буквы к верхнему регистру для красоты
+                user_ans_display = str(bad_user_ans).upper()
+                correct_ans_display = str(bad_correct_ans).upper()
+
                 lines.append(
                     f"\nВопрос {bad_q_num + 1}:\n{q_text}"
-                    f"\nВаш ответ: {bad_user_ans}"
-                    f"\nПравильный ответ: {bad_correct_ans}"
+                    f"\nВаш ответ: {user_ans_display}"
+                    f"\nПравильный ответ: {correct_ans_display}"
                 )
             await callback.message.answer("\n".join(lines))
 
