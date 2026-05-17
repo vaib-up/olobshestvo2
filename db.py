@@ -27,6 +27,19 @@ def init_db():
         )
         """
     )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS first_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            test_id TEXT NOT NULL,
+            score INTEGER NOT NULL,
+            total INTEGER NOT NULL,
+            finished_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, test_id)
+        )
+        """
+    )
     conn.commit()
     conn.close()
 
