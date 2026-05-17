@@ -1,6 +1,7 @@
 # api.py
 # REST API — мост между Mini App и RAG-системой.
 
+from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -22,12 +23,12 @@ app.add_middleware(
 
 class TheoryRequest(BaseModel):
     topic: str
-    section: str | None = None  # econ, law, pol, soc, phil
+    section: Optional[str] = None  # econ, law, pol, soc, phil
 
 class ErrorExplainRequest(BaseModel):
     question_text: str
     correct_answer: str
-    section: str | None = None
+    section: Optional[str] = None
 
 
 # ── Эндпоинты ────────────────────────────────────────────
