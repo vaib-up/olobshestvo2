@@ -4,13 +4,13 @@ import json
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
     Message, ReplyKeyboardMarkup, KeyboardButton,
-    InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery,
+    InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery,  WebAppInfo,
 )
 from aiogram.filters import CommandStart, Command
 
 from dotenv import load_dotenv
 
-from db import init_db, save_first_attempt, get_user_stats
+from db import init_db, save_first_attempt, get_user_stats, save_error
 
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
@@ -32,11 +32,14 @@ user_progress = {}
 # ========== КЛАВИАТУРЫ ==========
 
 def get_main_keyboard():
-    # Главная клавиатура: разделы + быстрый доступ к старту и статистике
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📚 Разделы")],
             [KeyboardButton(text="🔁 Старт"), KeyboardButton(text="📈 Статистика")],
+            [KeyboardButton(
+                text="🤖 Помощник ИИ",
+                web_app=WebAppInfo(url="https://ВАШ_ДОМЕН/miniapp/index.html")
+            )],
         ],
         resize_keyboard=True,
         input_field_placeholder="Выберите действие...",
@@ -435,6 +438,18 @@ async def answer_handler(callback: CallbackQuery):
         progress["score"] += 1
     else:
         progress["wrong"].append((q_num, user_ans, correct_ans_raw))
+        # НОВОЕ: сохраняем ошибку в БД
+        question_text = questions[q_num]["question"]
+        topic = questions[q_num].get("topic", None)
+        save_error(
+            user_id=user_id,
+            test_id=test_id,
+            question_text=question_text,
+            correct_answer=str(correct_ans_raw),
+            user_answer=str(user_ans),
+            topic=topic,
+        )
+
 
     progress["current"] += 1
     user_progress[user_id] = progress

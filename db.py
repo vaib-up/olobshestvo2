@@ -15,19 +15,21 @@ def init_db():
     cur = conn.cursor()
     cur.execute(
         """
-        CREATE TABLE IF NOT EXISTS first_attempts (
+        CREATE TABLE IF NOT EXISTS user_errors (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             test_id TEXT NOT NULL,
-            score INTEGER NOT NULL,
-            total INTEGER NOT NULL,
-            finished_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(user_id, test_id)
+            question_text TEXT NOT NULL,
+            correct_answer TEXT NOT NULL,
+            user_answer TEXT NOT NULL,
+            topic TEXT,
+            made_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
     conn.commit()
     conn.close()
+
 
 
 def save_first_attempt(user_id: int, test_id: str, score: int, total: int):
@@ -75,3 +77,36 @@ def get_user_stats(user_id: int):
 
     conn.close()
     return tests_count or 0, sum_score or 0, sum_total or 0, tests
+
+def save_error(user_id: int, test_id: str, question_text: str,
+               correct_answer: str, user_answer: str, topic: str = None):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO user_errors
+            (user_id, test_id, question_text, correct_answer, user_answer, topic)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (user_id, test_id, question_text, correct_answer, user_answer, topic),
+    )
+    conn.commit()
+    conn.close()
+
+def get_last_errors(user_id: int, limit: int = 10):
+    """Возвращает последние N ошибок пользователя."""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT question_text, correct_answer, user_answer, topic, made_at
+        FROM user_errors
+        WHERE user_id = ?
+        ORDER BY made_at DESC
+        LIMIT ?
+        """,
+        (user_id, limit),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
