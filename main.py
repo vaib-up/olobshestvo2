@@ -16,6 +16,8 @@ load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 
 bot = Bot(token=TOKEN)
+import asyncio
+asyncio.set_event_loop(asyncio.new_event_loop())
 dp = Dispatcher()
 
 # ========== ЗАГРУЗКА ТЕСТОВ ==========
