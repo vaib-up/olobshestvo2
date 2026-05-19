@@ -68,6 +68,7 @@ def get_subsection_keyboard(section_code: str):
             [InlineKeyboardButton(text="📝 Тесты - Выпуск №1", callback_data=f"{section_code}_test1")],
             [InlineKeyboardButton(text="📝 Тесты - Выпуск №2", callback_data=f"{section_code}_test2")],
             [InlineKeyboardButton(text="📝 Тесты - Выпуск №3", callback_data=f"{section_code}_test3")],
+            [InlineKeyboardButton(text="📝 Тесты - Выпуск №4", callback_data=f"{section_code}_test4")],
             [InlineKeyboardButton(text="↩️ К разделам", callback_data="back_sections")],
         ]
     )
