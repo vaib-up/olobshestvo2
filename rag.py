@@ -33,7 +33,7 @@ def get_theory(topic: str, section: str = None) -> str:
     if not chunks:
         return "По этой теме материал в базе не найден."
     context = "\n\n---\n\n".join(chunks)
-    system_prompt = """Ты учитель обществознания. 
+    system_prompt = """Ты опытный преподаватель олимпиадного обществознания. 
     Отвечай СТРОГО на основе предоставленного контекста из учебников.
     Если в контексте нет информации по теме — ответь только:
     "Материал по этой теме отсутствует в базе учебников."
@@ -48,7 +48,7 @@ def explain_error(question_text: str, correct_answer: str, section: str = None) 
     results = collection.query(query_texts=[question_text], n_results=5, where=where)
     chunks = results["documents"][0]
     context = "\n\n---\n\n".join(chunks) if chunks else "Контекст не найден."
-    system_prompt = """Ты учитель обществознания. 
+    system_prompt = """Ты опытный преподаватель олимпиадного обществознания. 
     Отвечай СТРОГО на основе предоставленного контекста из учебников.
     Если в контексте нет информации по теме — ответь только:
     "Материал по этой теме отсутствует в базе учебников."
