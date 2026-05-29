@@ -224,9 +224,14 @@ tg.ready();
 tg.expand();
 const USER_ID = tg.initDataUnsafe?.user?.id || null;
 
-// ВРЕМЕННО — убрать после отладки
-document.getElementById('errors-list').innerHTML =
-  `<div class="empty">DEBUG: USER_ID = ${USER_ID}<br>initDataUnsafe = ${JSON.stringify(tg.initDataUnsafe)}</div>`;
+// ОТЛАДКА
+document.getElementById('errors-list').innerHTML = `
+  <div class="empty" style="text-align:left;font-size:12px;word-break:break-all">
+    USER_ID: ${USER_ID}<br><br>
+    initData: ${tg.initData || 'ПУСТО'}<br><br>
+    version: ${tg.version}<br>
+    platform: ${tg.platform}
+  </div>`;
 
   // ── ЗАМЕНИ НА СВОЙ URL ПОСЛЕ ДЕПЛОЯ ──
   const API_BASE = "https://olobshestvo2.online";
