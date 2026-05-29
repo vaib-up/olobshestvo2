@@ -31,16 +31,16 @@ class ErrorExplainRequest(BaseModel):
     section: Optional[str] = None
 
 def clean_llm_output(text: str) -> str:
-    # Убираем LaTeX-формулы: \( ... \) и \[ ... \]
+    # Убираем LaTeX: \( ... \) и \[ ... \]
     text = re.sub(r'\\\(|\\\)', '', text)
     text = re.sub(r'\\\[|\\\]', '', text)
-    # Убираем ** жирный **
-    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    # Убираем ** жирный ** (в т.ч. многострочный)
+    text = re.sub(r'\*\*([\s\S]+?)\*\*', r'\1', text)
     # Убираем * курсив *
-    text = re.sub(r'\*(.+?)\*', r'\1', text)
+    text = re.sub(r'\*([\s\S]+?)\*', r'\1', text)
     # Убираем ### заголовки Markdown
     text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
-    # Убираем обратные кавычки `код`
+    # Убираем `код`
     text = re.sub(r'`(.+?)`', r'\1', text)
     return text.strip()
 
