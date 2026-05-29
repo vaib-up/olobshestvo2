@@ -1,6 +1,6 @@
 # api.py
 # REST API — мост между Mini App и RAG-системой.
-
+import re
 from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,6 +29,20 @@ class ErrorExplainRequest(BaseModel):
     question_text: str
     correct_answer: str
     section: Optional[str] = None
+
+def clean_llm_output(text: str) -> str:
+    # Убираем LaTeX-формулы: \( ... \) и \[ ... \]
+    text = re.sub(r'\\\(|\\\)', '', text)
+    text = re.sub(r'\\\[|\\\]', '', text)
+    # Убираем ** жирный **
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    # Убираем * курсив *
+    text = re.sub(r'\*(.+?)\*', r'\1', text)
+    # Убираем ### заголовки Markdown
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    # Убираем обратные кавычки `код`
+    text = re.sub(r'`(.+?)`', r'\1', text)
+    return text.strip()
 
 
 # ── Эндпоинты ────────────────────────────────────────────
@@ -66,3 +80,13 @@ def user_errors(user_id: int):
         for row in rows
     ]
     return {"errors": errors}
+
+@app.post("/theory")
+def theory(req: TheoryRequest):
+    answer = get_theory(req.topic, section=req.section)
+    return {"answer": clean_llm_output(answer)}
+
+@app.post("/explain_error")
+def explain(req: ErrorExplainRequest):
+    answer = explain_error(req.question_text, req.correct_answer, section=req.section)
+    return {"answer": clean_llm_output(answer)}

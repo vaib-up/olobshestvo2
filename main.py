@@ -39,7 +39,7 @@ def get_main_keyboard():
             [KeyboardButton(text="📚 Разделы")],
             [KeyboardButton(text="🔁 Старт"), KeyboardButton(text="📈 Статистика")],
             [KeyboardButton(
-                text="🤖 Помощник ИИ",
+                text="🤖 Помощник",
                 web_app=WebAppInfo(url="https://olobshestvo2.online/miniapp/index.html")
             )],
         ],
