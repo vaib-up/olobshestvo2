@@ -1,5 +1,4 @@
 # api.py
-# REST API — мост между Mini App и RAG-системой.
 import re
 from typing import Optional
 from fastapi import FastAPI, HTTPException
@@ -10,7 +9,6 @@ from db import get_last_errors
 
 app = FastAPI()
 
-# Разрешаем запросы из Telegram Mini App
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,13 +28,16 @@ class ErrorExplainRequest(BaseModel):
     correct_answer: str
     section: Optional[str] = None
 
+
+# ── Очистка вывода ИИ ────────────────────────────────────
+
 def clean_llm_output(text: str) -> str:
     # Убираем LaTeX: \( ... \) и \[ ... \]
     text = re.sub(r'\\\(|\\\)', '', text)
     text = re.sub(r'\\\[|\\\]', '', text)
-    # Убираем ** жирный ** (в т.ч. многострочный)
+    # Убираем **жирный** (в т.ч. многострочный)
     text = re.sub(r'\*\*([\s\S]+?)\*\*', r'\1', text)
-    # Убираем * курсив *
+    # Убираем *курсив*
     text = re.sub(r'\*([\s\S]+?)\*', r'\1', text)
     # Убираем ### заголовки Markdown
     text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
@@ -57,13 +58,13 @@ def theory(req: TheoryRequest):
     if not req.topic.strip():
         raise HTTPException(status_code=400, detail="Тема не может быть пустой")
     answer = get_theory(req.topic, section=req.section)
-    return {"answer": answer}
+    return {"answer": clean_llm_output(answer)}
 
 
 @app.post("/explain_error")
 def explain(req: ErrorExplainRequest):
     answer = explain_error(req.question_text, req.correct_answer, section=req.section)
-    return {"answer": answer}
+    return {"answer": clean_llm_output(answer)}
 
 
 @app.get("/errors/{user_id}")
@@ -80,13 +81,3 @@ def user_errors(user_id: int):
         for row in rows
     ]
     return {"errors": errors}
-
-@app.post("/theory")
-def theory(req: TheoryRequest):
-    answer = get_theory(req.topic, section=req.section)
-    return {"answer": clean_llm_output(answer)}
-
-@app.post("/explain_error")
-def explain(req: ErrorExplainRequest):
-    answer = explain_error(req.question_text, req.correct_answer, section=req.section)
-    return {"answer": clean_llm_output(answer)}
