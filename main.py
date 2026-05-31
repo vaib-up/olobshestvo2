@@ -40,7 +40,7 @@ def get_main_keyboard():
             [KeyboardButton(text="🔁 Старт"), KeyboardButton(text="📈 Статистика")],
             [KeyboardButton(
                 text="🤖 Помощник",
-                web_app=WebAppInfo(url="https://olobshestvo2.online/miniapp/index.html?v=2")
+                web_app=WebAppInfo(url="https://olobshestvo2.online/miniapp/index.html?v=3")
             )],
         ],
         resize_keyboard=True,
