@@ -33,14 +33,17 @@ user_progress = {}
 
 # ========== КЛАВИАТУРЫ ==========
 
-def get_main_keyboard():
+def get_main_keyboard(user_id: int = None):
+    url = "https://olobshestvo2.online/miniapp/index.html"
+    if user_id:
+        url += f"?uid={user_id}"
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📚 Разделы")],
             [KeyboardButton(text="🔁 Старт"), KeyboardButton(text="📈 Статистика")],
             [KeyboardButton(
                 text="🤖 Помощник",
-                web_app=WebAppInfo(url="https://olobshestvo2.online/miniapp/index.html")
+                web_app=WebAppInfo(url=url)
             )],
         ],
         resize_keyboard=True,
@@ -157,7 +160,7 @@ def get_stats_back_keyboard():
 async def cmd_start(message: Message):
     await message.answer(
         "Привет! Выберите действие:",
-        reply_markup=get_main_keyboard(),
+        reply_markup=get_main_keyboard(message.from_user.id),
     )
 
 
@@ -174,7 +177,7 @@ async def restart_handler(message: Message):
     # Возврат на главную клавиатуру
     await message.answer(
         "Вы вернулись в главное меню.",
-        reply_markup=get_main_keyboard(),
+        reply_markup=get_main_keyboard(message.from_user.id),
     )
 
 
@@ -239,7 +242,7 @@ async def restart_handler(message: Message):
     # просто ещё раз показываем главное меню разделов
     await message.answer(
         "Выберите раздел:",
-        reply_markup=get_main_keyboard(),
+        reply_markup=get_main_keyboard(message.from_user.id),
     )
 
 
@@ -252,7 +255,7 @@ async def stats_button_handler(message: Message):
 async def back_from_sections_menu(message: Message):
     await message.answer(
         "Главное меню:",
-        reply_markup=get_main_keyboard(),
+        reply_markup=get_main_keyboard(message.from_user.id),
     )
 
 @dp.message(F.text == "📊 Экономика")
@@ -591,7 +594,7 @@ async def back_to_sections(callback: CallbackQuery):
 
     await callback.message.answer(
         "Выберите раздел:",
-        reply_markup=get_main_keyboard(),
+        reply_markup=get_main_keyboard(message.from_user.id),
     )
     await callback.answer()
 

@@ -222,7 +222,8 @@
 const tg = window.Telegram.WebApp;
 tg.ready();
 tg.expand();
-const USER_ID = tg.initDataUnsafe?.user?.id || null;
+const _urlUid = new URLSearchParams(window.location.search).get("uid");
+const USER_ID = tg.initDataUnsafe?.user?.id || (_urlUid ? parseInt(_urlUid) : null);
 
 // ОТЛАДКА
 document.getElementById('errors-list').innerHTML = `
