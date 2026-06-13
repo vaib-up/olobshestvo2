@@ -1,74 +1,316 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="dark">
+<html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Шахта Знаний</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Обществознание — помощник</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<link rel="stylesheet" href="css/style.css">
+<style>
+  :root {
+    --bg: #f7f6f2;
+    --surface: #ffffff;
+    --text: #28251d;
+    --text-muted: #7a7974;
+    --primary: #01696f;
+    --primary-hover: #0c4e54;
+    --border: #d4d1ca;
+    --error-color: #a12c7b;
+    --radius: 12px;
+    --font: 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    padding: 16px;
+  }
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 180ms ease;
+  }
+  .tab-btn.active {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: #cedcd8;
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  input, select, textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 15px;
+    font-family: var(--font);
+    outline: none;
+    transition: border-color 180ms ease;
+    margin-bottom: 12px;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--primary);
+  }
+  .btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 180ms ease;
+  }
+  .btn:hover { background: var(--primary-hover); }
+  .btn:disabled { background: var(--border); cursor: not-allowed; }
+  .answer-box {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 15px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    display: none;
+  }
+  .answer-box.visible { display: block; }
+  .loader {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-top: 16px;
+    display: none;
+  }
+  .loader.visible { display: block; }
+  .error-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .error-card .question {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .error-card .meta {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .error-card .explain-btn {
+    padding: 8px 14px;
+    background: none;
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 180ms ease;
+  }
+  .error-card .explain-btn:hover {
+    background: var(--primary);
+    color: white;
+  }
+  .error-answer {
+    margin-top: 10px;
+    padding: 12px;
+    background: #f0f7f7;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    display: none;
+  }
+  .error-answer.visible { display: block; }
+  .empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+    padding: 40px 0;
+  }
+</style>
 </head>
 <body>
-<div id="app">
 
-  <header class="header">
-    <div class="header-logo">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M2 22 12 2l10 20"/><path d="M6 14h12"/>
-      </svg>
-      Шахта Знаний
-    </div>
-    <div class="header-resources">
-      <div class="res-chip gold">⚡ <span id="res-gold">0</span></div>
-      <div class="res-chip gem">💎 <span id="res-gems">0</span></div>
-    </div>
-  </header>
-
-  <main class="main">
-    <section id="screen-mine"     class="screen active"></section>
-    <section id="screen-theory"   class="screen"></section>
-    <section id="screen-progress" class="screen"></section>
-  </main>
-
-  <nav class="bottom-nav">
-    <button class="nav-btn active" id="nav-mine" onclick="App.switchScreen('mine')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M2 22 12 2l10 20"/><path d="M6 14h12"/>
-      </svg>
-      Шахта
-    </button>
-    <button class="nav-btn" id="nav-theory" onclick="App.switchScreen('theory')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-      </svg>
-      Теория
-    </button>
-    <button class="nav-btn" id="nav-progress" onclick="App.switchScreen('progress')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10"/>
-        <line x1="12" y1="20" x2="12" y2="4"/>
-        <line x1="6"  y1="20" x2="6"  y2="14"/>
-      </svg>
-      Прогресс
-    </button>
-  </nav>
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('theory')">📚 Теория</button>
+  <button class="tab-btn" onclick="switchTab('errors')">❌ Мои ошибки</button>
 </div>
 
-<div class="modal-overlay" id="modal-overlay">
-  <div class="modal" id="modal">
-    <div class="modal-drag"></div>
-    <div id="modal-content"></div>
+<!-- ── ВКЛАДКА ТЕОРИЯ ── -->
+<div id="tab-theory" class="tab-content active">
+  <label>Раздел</label>
+  <select id="theory-section">
+    <option value="">Все разделы</option>
+    <option value="econ">📊 Экономика</option>
+    <option value="pol">🏛 Политология</option>
+    <option value="law">⚖️ Право</option>
+    <option value="phil">🤔 Философия</option>
+    <option value="soc">👥 Социология</option>
+  </select>
+
+  <label>Тема или вопрос</label>
+  <textarea id="theory-topic" rows="3"
+    placeholder="Например: что такое государство, виды налогов..."></textarea>
+
+  <button class="btn" id="theory-btn" onclick="askTheory()">Объяснить</button>
+
+  <div class="loader" id="theory-loader">⏳ Ищу в учебниках...</div>
+  <div class="answer-box" id="theory-answer"></div>
+</div>
+
+<!-- ── ВКЛАДКА ОШИБКИ ── -->
+<div id="tab-errors" class="tab-content">
+  <div id="errors-list">
+    <div class="empty">Загрузка...</div>
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<script>
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+const _urlUid = new URLSearchParams(window.location.search).get("uid");
+const USER_ID = tg.initDataUnsafe?.user?.id || (_urlUid ? parseInt(_urlUid) : null);
 
-<script src="js/state.js"></script>
-<script src="js/mine.js"></script>
-<script src="js/theory.js"></script>
-<script src="js/progress.js"></script>
-<script src="js/modal.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/app.js"></script>
+const API_BASE = "https://olobshestvo2.online";
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', ['theory','errors'][i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => {
+    c.classList.toggle('active', c.id === 'tab-' + name);
+  });
+  if (name === 'errors') loadErrors();
+}
+
+async function askTheory() {
+  const topic = document.getElementById('theory-topic').value.trim();
+  const section = document.getElementById('theory-section').value;
+  if (!topic) return;
+  setLoading('theory', true);
+  try {
+    const res = await fetch(`${API_BASE}/theory`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ topic, section: section || null }),
+    });
+    const data = await res.json();
+    showAnswer('theory-answer', data.answer);
+  } catch (e) {
+    showAnswer('theory-answer', '⚠️ Ошибка соединения с сервером.');
+  } finally {
+    setLoading('theory', false);
+  }
+}
+
+async function loadErrors() {
+  if (!USER_ID) {
+    document.getElementById('errors-list').innerHTML =
+      '<div class="empty">Не удалось определить пользователя.</div>';
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/errors/${USER_ID}`);
+    const data = await res.json();
+    renderErrors(data.errors);
+  } catch (e) {
+    document.getElementById('errors-list').innerHTML =
+      '<div class="empty">⚠️ Ошибка загрузки.</div>';
+  }
+}
+
+function renderErrors(errors) {
+  const container = document.getElementById('errors-list');
+  if (!errors.length) {
+    container.innerHTML = '<div class="empty">🎉 Ошибок нет! Так держать.</div>';
+    return;
+  }
+  container.innerHTML = errors.map((e, i) => `
+    <div class="error-card">
+      <div class="question">${e.question}</div>
+      <div class="meta">
+        Ваш ответ: <b>${e.user_answer}</b> &nbsp;→&nbsp;
+        Правильно: <b>${e.correct_answer}</b>
+        ${e.topic ? `<br>Тема: ${e.topic}` : ''}
+      </div>
+      <button class="explain-btn" onclick="explainError(${i}, this)"
+        data-question="${encodeURIComponent(e.question)}"
+        data-correct="${encodeURIComponent(e.correct_answer)}"
+        data-section="${e.section || ''}">
+        💡 Объяснить
+      </button>
+      <div class="error-answer" id="error-ans-${i}"></div>
+    </div>
+  `).join('');
+}
+
+async function explainError(idx, btn) {
+  const question = decodeURIComponent(btn.dataset.question);
+  const correct  = decodeURIComponent(btn.dataset.correct);
+  const section  = btn.dataset.section || null;
+  const ansBox   = document.getElementById(`error-ans-${idx}`);
+  btn.disabled = true;
+  btn.textContent = '⏳ Загрузка...';
+  try {
+    const res = await fetch(`${API_BASE}/explain_error`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ question_text: question, correct_answer: correct, section }),
+    });
+    const data = await res.json();
+    ansBox.textContent = data.answer;
+    ansBox.classList.add('visible');
+    btn.textContent = '✅ Объяснено';
+  } catch (e) {
+    ansBox.textContent = '⚠️ Ошибка соединения.';
+    ansBox.classList.add('visible');
+    btn.textContent = '💡 Объяснить';
+    btn.disabled = false;
+  }
+}
+
+function setLoading(scope, state) {
+  document.getElementById(`${scope}-loader`).classList.toggle('visible', state);
+  document.getElementById(`${scope}-btn`).disabled = state;
+}
+
+function showAnswer(id, text) {
+  const box = document.getElementById(id);
+  box.textContent = text;
+  box.classList.add('visible');
+}
+</script>
 </body>
 </html>
