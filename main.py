@@ -34,16 +34,22 @@ user_progress = {}
 # ========== КЛАВИАТУРЫ ==========
 
 def get_main_keyboard(user_id: int = None):
-    url = "https://olobshestvo2.online/miniapp/index.html"
+    assistant_url = "https://olobshestvo2.online/miniapp/index.html"
+    mine_url = "https://olobshestvo2.online/mine/index.html"
     if user_id:
-        url += f"?uid={user_id}"
+        assistant_url += f"?uid={user_id}"
+        mine_url += f"?uid={user_id}"
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📚 Разделы")],
             [KeyboardButton(text="🔁 Старт"), KeyboardButton(text="📈 Статистика")],
             [KeyboardButton(
                 text="🤖 Помощник",
-                web_app=WebAppInfo(url=url)
+                web_app=WebAppInfo(url=assistant_url)
+            )],
+            [KeyboardButton(
+                text="⛏️ Шахта Знаний",
+                web_app=WebAppInfo(url=mine_url)
             )],
         ],
         resize_keyboard=True,
@@ -52,7 +58,6 @@ def get_main_keyboard(user_id: int = None):
 
 
 def get_sections_keyboard():
-    # Клавиатура выбора конкретного раздела + назад к главной
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📊 Экономика"), KeyboardButton(text="🏛 Политология")],
@@ -93,14 +98,8 @@ def get_yes_no_keyboard(test_id: str, q_num: int):
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(
-                    text="✅ Да",
-                    callback_data=f"ans|{test_id}|да_нет|{q_num}|да",
-                ),
-                InlineKeyboardButton(
-                    text="❌ Нет",
-                    callback_data=f"ans|{test_id}|да_нет|{q_num}|нет",
-                ),
+                InlineKeyboardButton(text="✅ Да", callback_data=f"ans|{test_id}|да_нет|{q_num}|да"),
+                InlineKeyboardButton(text="❌ Нет", callback_data=f"ans|{test_id}|да_нет|{q_num}|нет"),
             ]
         ]
     )
@@ -112,12 +111,7 @@ def get_options_keyboard(test_id: str, q_num: int, options: list):
     for i, _ in enumerate(options):
         letter = letters[i]
         buttons.append(
-            [
-                InlineKeyboardButton(
-                    text=letter,
-                    callback_data=f"ans|{test_id}|тест|{q_num}|{letter.lower()}",
-                )
-            ]
+            [InlineKeyboardButton(text=letter, callback_data=f"ans|{test_id}|тест|{q_num}|{letter.lower()}")]
         )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -125,12 +119,7 @@ def get_options_keyboard(test_id: str, q_num: int, options: list):
 def get_next_keyboard(test_id: str, q_num: int):
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="➡️ Следующий вопрос",
-                    callback_data=f"next|{test_id}|развёрнутый|{q_num}",
-                )
-            ]
+            [InlineKeyboardButton(text="➡️ Следующий вопрос", callback_data=f"next|{test_id}|развёрнутый|{q_num}")]
         ]
     )
 
@@ -138,12 +127,7 @@ def get_next_keyboard(test_id: str, q_num: int):
 def get_back_to_types_keyboard(test_id: str):
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="↩️ К выбору типа вопросов",
-                    callback_data=f"back_types|{test_id}",
-                )
-            ]
+            [InlineKeyboardButton(text="↩️ К выбору типа вопросов", callback_data=f"back_types|{test_id}")]
         ]
     )
 
@@ -174,7 +158,6 @@ async def sections_menu(message: Message):
 
 @dp.message(F.text == "🔁 Старт")
 async def restart_handler(message: Message):
-    # Возврат на главную клавиатуру
     await message.answer(
         "Вы вернулись в главное меню.",
         reply_markup=get_main_keyboard(message.from_user.id),
@@ -208,7 +191,6 @@ async def cmd_stats(message: Message):
         "По блокам:",
     ]
 
-    # test_id в БД сейчас вида "econ_test1|да_нет" или "econ_test1|тест"
     for raw_id, score, total, _ in tests:
         base_id, block_type = raw_id.split("|", maxsplit=1)
         section_code, num_part = base_id.split("_", maxsplit=1)
@@ -228,28 +210,11 @@ async def cmd_stats(message: Message):
 
         section_title = section_titles.get(section_code, section_code)
         block_title = type_titles.get(block_type, block_type)
+        lines.append(f"• {section_title}, выпуск {num}, {block_title}: {score}/{total}")
 
-        lines.append(
-            f"• {section_title}, выпуск {num}, {block_title}: {score}/{total}"
-        )
-
-    text = "\n".join(lines)  # <<< ВОТ ЭТОЙ СТРОКИ НЕ ХВАТАЛО
-
+    text = "\n".join(lines)
     await message.answer(text, reply_markup=get_stats_back_keyboard())
 
-@dp.message(F.text == "🔁 Старт")
-async def restart_handler(message: Message):
-    # просто ещё раз показываем главное меню разделов
-    await message.answer(
-        "Выберите раздел:",
-        reply_markup=get_main_keyboard(message.from_user.id),
-    )
-
-
-@dp.message(F.text == "📈 Статистика")
-async def stats_button_handler(message: Message):
-    # перенаправление на тот же код, что и /stats
-    await cmd_stats(message)
 
 @dp.message(F.text == "↩️ Назад")
 async def back_from_sections_menu(message: Message):
@@ -308,7 +273,6 @@ async def extended_answer_handler(message: Message):
     user_id = message.from_user.id
     progress = user_progress.get(user_id)
 
-    # развёрнутые ответы участвуют только в диалоге, но НЕ в статистике
     if not progress or progress["type"] != "развёрнутый":
         return
 
@@ -374,11 +338,10 @@ async def any_test_selected(callback: CallbackQuery):
     )
     await callback.answer()
 
-# ========== ЗАПУСК КОНКРЕТНОГО ТИПА ВОПРОСОВ ==========
+# ========== ЗАПУСК КОНКРЕТНОГО ТИПА ==========
 
 @dp.callback_query(F.data.startswith("type|"))
 async def question_type_selected(callback: CallbackQuery):
-    # data: type|law_test1|да_нет  или  type|law_test1|тест
     _, test_id, q_type = callback.data.split("|")
     user_id = callback.from_user.id
 
@@ -419,11 +382,10 @@ async def question_type_selected(callback: CallbackQuery):
 
     await callback.answer()
 
-# ========== ОБРАБОТКА ОТВЕТОВ ДА/НЕТ / ТЕСТ ==========
+# ========== ОБРАБОТКА ОТВЕТОВ ==========
 
 @dp.callback_query(F.data.startswith("ans|"))
 async def answer_handler(callback: CallbackQuery):
-    # data: ans|law_test1|да_нет|0|да   или   ans|law_test1|тест|0|б
     _, test_id, q_type, q_num_str, user_ans = callback.data.split("|")
     q_num = int(q_num_str)
     user_id = callback.from_user.id
@@ -436,7 +398,6 @@ async def answer_handler(callback: CallbackQuery):
     questions = TESTS[test_id][q_type]
     correct_ans_raw = questions[q_num]["correct"]
 
-    # нормализуем и ответ пользователя, и правильный ответ:
     user_norm = str(user_ans).strip().lower()
     correct_norm = str(correct_ans_raw).strip().lower()
 
@@ -444,7 +405,6 @@ async def answer_handler(callback: CallbackQuery):
         progress["score"] += 1
     else:
         progress["wrong"].append((q_num, user_ans, correct_ans_raw))
-        # НОВОЕ: сохраняем ошибку в БД
         question_text = questions[q_num]["question"]
         topic = questions[q_num].get("topic", None)
         save_error(
@@ -456,12 +416,10 @@ async def answer_handler(callback: CallbackQuery):
             topic=topic,
         )
 
-
     progress["current"] += 1
     user_progress[user_id] = progress
 
     if progress["current"] < progress["total"]:
-        # Ещё есть вопросы
         next_q_num = progress["current"]
         next_q = questions[next_q_num]["question"]
 
@@ -476,17 +434,14 @@ async def answer_handler(callback: CallbackQuery):
             options_text = "\n".join(options)
             kb = get_options_keyboard(test_id, next_q_num, options)
             await callback.message.answer(
-                f"Вопрос {next_q_num + 1} из {progress['total']}"
-                f":\n\n{next_q}\n\n{options_text}",
+                f"Вопрос {next_q_num + 1} из {progress['total']}:\n\n{next_q}\n\n{options_text}",
                 reply_markup=kb,
             )
         else:
             await callback.message.answer(next_q)
     else:
-        # КОНЕЦ КОНКРЕТНОГО БЛОКА
         kb = get_back_to_types_keyboard(test_id)
 
-        # сохраняем ТОЛЬКО блоки да/нет и тест, развёрнутые игнорируем
         if q_type in ("да_нет", "тест"):
             block_id = f"{test_id}|{q_type}"
             save_first_attempt(
@@ -496,23 +451,19 @@ async def answer_handler(callback: CallbackQuery):
                 total=progress["total"],
             )
 
-        # основное сообщение о результате
         await callback.message.answer(
             f"Блок завершён!\n\nВаш результат: {progress['score']} из {progress['total']}.",
             reply_markup=kb,
         )
 
-        # если были ошибки — показываем список
         wrong = progress.get("wrong", [])
         if wrong:
             questions = TESTS[test_id][q_type]
             lines = ["Ошибки в этом прохождении:"]
             for bad_q_num, bad_user_ans, bad_correct_ans in wrong:
                 q_text = questions[bad_q_num]["question"]
-                # приводим буквы к верхнему регистру для красоты
                 user_ans_display = str(bad_user_ans).upper()
                 correct_ans_display = str(bad_correct_ans).upper()
-
                 lines.append(
                     f"\nВопрос {bad_q_num + 1}:\n{q_text}"
                     f"\nВаш ответ: {user_ans_display}"
@@ -525,7 +476,7 @@ async def answer_handler(callback: CallbackQuery):
     await callback.answer()
 
 
-# ========== СЛЕДУЮЩИЙ РАЗВЁРНУТЫЙ ВОПРОС ==========
+# ========== СЛЕДУЮЩИЙ РАЗВЁРНУТЫЙ ==========
 
 @dp.callback_query(F.data.startswith("next|"))
 async def next_extended_question(callback: CallbackQuery):
@@ -550,7 +501,7 @@ async def next_extended_question(callback: CallbackQuery):
     else:
         kb = get_back_to_types_keyboard(test_id)
         await callback.message.answer(
-            "Блок с развёрнутыми ответами завершён! Спасибо за ответы.",
+            "Блок с развёрнутыми ответами завершён!",
             reply_markup=kb,
         )
         del user_progress[user_id]
@@ -561,16 +512,13 @@ async def next_extended_question(callback: CallbackQuery):
 @dp.callback_query(F.data.startswith("back_types|"))
 async def back_to_types(callback: CallbackQuery):
     _, test_id = callback.data.split("|")
-
     if test_id not in TESTS:
         await callback.answer("Тест не найден.")
         return
-
     user_id = callback.from_user.id
     user_progress.pop(user_id, None)
-
     await callback.message.answer(
-        "Выберите тип вопросов для этого выпуска:",
+        "Выберите тип вопросов:",
         reply_markup=get_question_type_keyboard(test_id),
     )
     await callback.answer()
@@ -579,7 +527,6 @@ async def back_to_types(callback: CallbackQuery):
 @dp.callback_query(F.data.startswith("back_issues|"))
 async def back_to_issues(callback: CallbackQuery):
     _, section_code = callback.data.split("|")
-
     await callback.message.answer(
         "Выберите выпуск:",
         reply_markup=get_subsection_keyboard(section_code),
@@ -591,14 +538,13 @@ async def back_to_issues(callback: CallbackQuery):
 async def back_to_sections(callback: CallbackQuery):
     user_id = callback.from_user.id
     user_progress.pop(user_id, None)
-
     await callback.message.answer(
         "Выберите раздел:",
-        reply_markup=get_main_keyboard(message.from_user.id),
+        reply_markup=get_sections_keyboard(),
     )
     await callback.answer()
 
-# ========== ЗАПУСК БОТА ==========
+# ========== ЗАПУСК ==========
 
 async def main():
     init_db()
