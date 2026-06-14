@@ -35,10 +35,10 @@ user_progress = {}
 
 def get_main_keyboard(user_id: int = None):
     assistant_url = "https://olobshestvo2.online/miniapp/index.html"
-    mine_url = "https://olobshestvo2.online/mine/index.html"
+    vseross_url = "https://olobshestvo2.online/vseross/index.html"
     if user_id:
         assistant_url += f"?uid={user_id}"
-        mine_url += f"?uid={user_id}"
+        vseross_url += f"?uid={user_id}"
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📚 Разделы")],
@@ -48,8 +48,8 @@ def get_main_keyboard(user_id: int = None):
                 web_app=WebAppInfo(url=assistant_url)
             )],
             [KeyboardButton(
-                text="⛏️ Шахта Знаний",
-                web_app=WebAppInfo(url=mine_url)
+                text="⛏️ Шахта Всероса",
+                web_app=WebAppInfo(url=vseross_url)
             )],
         ],
         resize_keyboard=True,
