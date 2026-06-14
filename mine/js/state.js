@@ -1,19 +1,26 @@
-// Игровое состояние — единый источник правды
+// Глобальное состояние приложения
 const State = {
+  // Ресурсы
   gold: 0,
   gems: 0,
   idleAccum: 0,
 
-  // Какие горизонты разблокированы (id строкой)
+  // Основная шахта
+  mineData: [],
   unlockedHorizons: [],
-
-  // Какие задания в шахте пройдены (Set из id заданий)
   completedTasks: new Set(),
 
-  // Статистика ответов
+  // Шахта Всероса
+  vserossData: [],
+  unlockedVseross: [],
+  completedVseross: new Set(),
+
+  // Секретная Шахта
+  secretData: [],
+  unlockedSecret: [],
+  completedSecret: new Set(),
+
+  // Статистика
   totalAnswers: 0,
   correctAnswers: 0,
-
-  // Данные шахты (горизонты + задания), загружаются из mine_data.json
-  mineData: [],
 };

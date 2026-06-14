@@ -26,6 +26,8 @@
   <main class="main">
     <section id="screen-mine"     class="screen active"></section>
     <section id="screen-theory"   class="screen"></section>
+    <section id="screen-vseross"  class="screen"></section>
+    <section id="screen-secret"   class="screen"></section>
     <section id="screen-progress" class="screen"></section>
   </main>
 
@@ -42,6 +44,20 @@
         <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
       </svg>
       Теория
+    </button>
+    <button class="nav-btn" id="nav-vseross" onclick="App.switchScreen('vseross')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="8" r="6"/>
+        <path d="M8 14v7m4-7v7m4-7v7"/>
+      </svg>
+      Всерос
+    </button>
+    <button class="nav-btn" id="nav-secret" onclick="App.switchScreen('secret')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      Секретная
     </button>
     <button class="nav-btn" id="nav-progress" onclick="App.switchScreen('progress')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -65,6 +81,8 @@
 <script src="js/state.js"></script>
 <script src="js/mine.js"></script>
 <script src="js/theory.js"></script>
+<script src="js/vseross.js"></script>
+<script src="js/secret.js"></script>
 <script src="js/progress.js"></script>
 <script src="js/modal.js"></script>
 <script src="js/ui.js"></script>

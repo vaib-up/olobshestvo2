@@ -6,10 +6,15 @@ const App = {
       Telegram.WebApp.setHeaderColor('#0f0e0c');
     }
 
-    // Загружаем данные шахты из JSON, потом рендерим всё
-    Mine.loadData().then(() => {
+    Promise.all([
+      Mine.loadData(),
+      Vseross.loadData(),
+      Secret.loadData(),
+    ]).then(() => {
       Mine.render();
       Theory.render();
+      Vseross.render();
+      Secret.render();
       Progress.render();
       UI.updateResources();
       Mine.startIdleTick();
@@ -26,6 +31,8 @@ const App = {
   renderAll() {
     Mine.render();
     Theory.render();
+    Vseross.render();
+    Secret.render();
     Progress.render();
     UI.updateResources();
   }
