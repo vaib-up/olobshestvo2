@@ -1,102 +1,171 @@
-// Теория — полностью независимый раздел, только чтение
-// TODO: заменить _data на fetch('data/theory_data.json')
+// Теория — RAG-поиск + история запросов (последние 10)
 const Theory = {
 
-  _data: [
-    {
-      id: 'soc', name: 'Социология', icon: '👥',
-      entries: [
-        { id: 'stratification', title: 'Социальная стратификация', preview: 'Теория Сорокина, оси неравенства, мобильность' },
-        { id: 'socialization',  title: 'Социализация личности',    preview: 'Первичная и вторичная, Дж. Мид, ресоциализация' },
-        { id: 'deviance',       title: 'Девиация',                 preview: 'Аномия Дюркгейма, типы Мертона' },
-      ]
-    },
-    {
-      id: 'econ', name: 'Экономика', icon: '📊',
-      entries: [
-        { id: 'market', title: 'Рыночная система',    preview: 'Спрос, предложение, равновесие' },
-        { id: 'gdp',    title: 'ВВП и макроэкономика', preview: 'Три метода, реальный vs номинальный' },
-      ]
-    },
-    {
-      id: 'law', name: 'Право', icon: '⚖️',
-      entries: [
-        { id: 'constitution', title: 'Конституционное право', preview: 'КРФ 1993, основы строя, поправки' },
-      ]
-    },
-    {
-      id: 'pol', name: 'Политология', icon: '🏛️',
-      entries: [
-        { id: 'power', title: 'Природа политической власти', preview: 'Легитимность по Веберу, ресурсы власти' },
-      ]
-    },
-    {
-      id: 'phil', name: 'Философия', icon: '🦉',
-      entries: [
-        { id: 'epistemology', title: 'Теория познания', preview: 'Эмпиризм, рационализм, Кант, Поппер' },
-      ]
-    },
-  ],
+  API: 'https://olobshestvo2.online',
+  HISTORY_KEY: 'theory_history',
+  MAX_HISTORY: 10,
 
-  render(filter = '') {
+  // ── Хранение истории ─────────────────────────────────────────
+  _getHistory() {
+    try { return JSON.parse(localStorage.getItem(this.HISTORY_KEY) || '[]'); }
+    catch { return []; }
+  },
+
+  _saveHistory(items) {
+    localStorage.setItem(this.HISTORY_KEY, JSON.stringify(items));
+  },
+
+  _addToHistory(topic, answer) {
+    const history = this._getHistory();
+    // Убираем дубликат если есть
+    const filtered = history.filter(h => h.topic.toLowerCase() !== topic.toLowerCase());
+    filtered.unshift({ topic, answer, ts: Date.now() });
+    this._saveHistory(filtered.slice(0, this.MAX_HISTORY));
+  },
+
+  // ── Рендер ──────────────────────────────────────────────────
+  render() {
     const screen = document.getElementById('screen-theory');
-    const q = filter.toLowerCase().trim();
+    const history = this._getHistory();
+
     screen.innerHTML = `
       <div class="screen-title">Теория</div>
-      <div class="theory-search">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-          style="color:var(--text-faint);flex-shrink:0">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
-        <input type="text" placeholder="Поиск по темам..."
-          oninput="Theory.render(this.value)" value="${filter}"
-          style="flex:1;background:none;border:none;outline:none;font:inherit;font-size:var(--text-sm);color:var(--text)">
+
+      <!-- Поле запроса -->
+      <div style="padding:0 var(--space-4) var(--space-4)">
+        <div class="theory-search" style="margin-bottom:var(--space-3)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            style="color:var(--text-faint);flex-shrink:0">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input id="theory-input" type="text"
+            placeholder="Спроси по любой теме..."
+            style="flex:1;background:none;border:none;outline:none;font:inherit;
+              font-size:var(--text-sm);color:var(--text)"
+            onkeydown="if(event.key==='Enter')Theory.ask()">
+        </div>
+        <button class="btn-primary" onclick="Theory.ask()" id="theory-ask-btn">
+          🔍 Спросить RAG
+        </button>
+        <div id="theory-result" style="margin-top:var(--space-4)"></div>
+      </div>
+
+      <!-- История — показываем только если есть записи -->
+      <div id="theory-history-block" style="padding:0 var(--space-4) var(--space-8)">
+        ${ history.length ? `<div class="section-label">История запросов</div>` : '' }
+        ${ history.map((h, i) => this._historyCard(h, i)).join('') }
+      </div>`;
+  },
+
+  _historyCard(h, i) {
+    const date = new Date(h.ts).toLocaleString('ru', {
+      day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
+    });
+    // Превью — первые 120 символов ответа
+    const preview = h.answer.length > 120 ? h.answer.slice(0, 120) + '...' : h.answer;
+    return `
+      <div class="theory-entry" style="flex-direction:column;align-items:flex-start;gap:var(--space-2)"
+        onclick="Theory.toggleHistory(${i})">
+        <div style="display:flex;align-items:center;gap:var(--space-2);width:100%">
+          <div style="font-size:1rem">📖</div>
+          <div style="flex:1;min-width:0">
+            <div class="theory-entry-title" style="white-space:normal">${h.topic}</div>
+            <div class="theory-entry-sub">${date}</div>
+          </div>
+          <div id="theory-chevron-${i}" style="color:var(--text-faint);transition:transform .2s">›</div>
+        </div>
+        <div id="theory-ans-${i}" style="display:none;font-size:var(--text-sm);line-height:1.8;
+          color:var(--text-muted);border-top:1px solid var(--border);padding-top:var(--space-3);width:100%">
+          ${h.answer.replace(/\n/g, '<br>')}
+        </div>
+      </div>`;
+  },
+
+  toggleHistory(i) {
+    const el = document.getElementById(`theory-ans-${i}`);
+    const ch = document.getElementById(`theory-chevron-${i}`);
+    if (!el) return;
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'block';
+    if (ch) ch.style.transform = open ? '' : 'rotate(90deg)';
+  },
+
+  // ── Запрос к RAG ──────────────────────────────────────────
+  async ask() {
+    const input = document.getElementById('theory-input');
+    const topic = input?.value?.trim();
+    if (!topic) { UI.toast('Введи тему запроса', 'gold'); return; }
+
+    const btn = document.getElementById('theory-ask-btn');
+    const result = document.getElementById('theory-result');
+
+    // Состояние загрузки
+    btn.disabled = true;
+    btn.textContent = '⏳ Загрузка...';
+    result.innerHTML = `
+      <div style="display:flex;align-items:center;gap:var(--space-3);
+        color:var(--text-muted);font-size:var(--text-sm);padding:var(--space-4) 0">
+        <div style="width:18px;height:18px;border:2px solid var(--primary);
+          border-top-color:transparent;border-radius:50%;
+          animation:spin .8s linear infinite"></div>
+        Ищу ответ в базе знаний...
       </div>`;
 
-    for (const section of this._data) {
-      const visible = section.entries.filter(e =>
-        !q || e.title.toLowerCase().includes(q) || section.name.toLowerCase().includes(q)
-      );
-      if (!visible.length) continue;
+    // Добавляем keyframes если ещё не добавлены
+    if (!document.getElementById('spin-style')) {
+      const s = document.createElement('style');
+      s.id = 'spin-style';
+      s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+      document.head.appendChild(s);
+    }
 
-      const sec = document.createElement('div');
-      sec.style.marginBottom = 'var(--space-6)';
-      sec.innerHTML = `<div class="section-label">${section.icon} ${section.name}</div>`;
-      visible.forEach(e => {
-        const card = document.createElement('div');
-        card.className = 'theory-entry';
-        card.innerHTML = `
-          <div class="theory-entry-icon">${section.icon}</div>
-          <div class="theory-entry-body">
-            <div class="theory-entry-title">${e.title}</div>
-            <div class="theory-entry-sub">${e.preview}</div>
-          </div>
-          <div style="color:var(--text-faint)">›</div>`;
-        card.onclick = () => this.openEntry(section, e);
-        sec.appendChild(card);
+    try {
+      const resp = await fetch(`${this.API}/theory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic })
       });
-      screen.appendChild(sec);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      const answer = data.answer || 'Ответ не получен';
+
+      // Отображаем ответ
+      result.innerHTML = `
+        <div style="background:var(--primary-dim);border:1px solid var(--primary);
+          border-radius:var(--radius-xl);padding:var(--space-4)">
+          <div style="font-size:var(--text-xs);color:var(--primary);font-weight:700;
+            margin-bottom:var(--space-3)">📖 ${topic}</div>
+          <div style="font-size:var(--text-sm);line-height:1.8;color:var(--text)">
+            ${answer.replace(/\n/g, '<br>')}
+          </div>
+        </div>`;
+
+      // Сохраняем в историю
+      this._addToHistory(topic, answer);
+      input.value = '';
+      // Обновляем блок истории без полного ререндера
+      this._refreshHistoryBlock();
+
+    } catch (e) {
+      result.innerHTML = `
+        <div style="background:#2a0c0e;border:1px solid var(--danger);
+          border-radius:var(--radius-xl);padding:var(--space-4);
+          font-size:var(--text-sm);color:#e07070">
+          ⚠️ Ошибка связи с сервером. Проверь интернет.
+        </div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🔍 Спросить RAG';
     }
   },
 
-  openEntry(section, entry) {
-    // TODO: заменить на реальный контент из theory_data.json
-    Modal.open(() => {
-      document.getElementById('modal-content').innerHTML = `
-        <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4)">
-          <div style="font-size:1.4rem">${section.icon}</div>
-          <div>
-            <div style="font-weight:700">${entry.title}</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted)">${section.name}</div>
-          </div>
-        </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
-          padding:var(--space-4);font-size:var(--text-sm);line-height:1.8;color:var(--text-muted);
-          margin-bottom:var(--space-4)">
-          // TODO: здесь будет реальный текст из theory_data.json
-        </div>
-        <button class="btn-secondary" onclick="Modal.close()">Закрыть</button>`;
-    });
+  _refreshHistoryBlock() {
+    const history = this._getHistory();
+    const block = document.getElementById('theory-history-block');
+    if (!block) return;
+    block.innerHTML =
+      (history.length ? `<div class="section-label">История запросов</div>` : '') +
+      history.map((h, i) => this._historyCard(h, i)).join('');
   },
 };
