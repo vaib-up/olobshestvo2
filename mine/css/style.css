@@ -30,7 +30,6 @@
   --success:#5a9e3a;
   --shadow-md:0 4px 16px rgba(0,0,0,.4);
 
-  /* Шахтные цвета этажей */
   --shaft-dirt:    #2a1a0e;
   --shaft-dirt-2:  #3a2312;
   --shaft-wall:    #1e1208;
@@ -100,20 +99,11 @@ button{cursor:pointer;border:none;background:none;font:inherit;color:inherit}
 .nav-btn svg{width:20px;height:20px}
 
 /* ===== ШАХТНЫЕ ЭТАЖИ ===== */
-
-/* Обёртка экрана шахты — без padding, чтобы этажи шли от края до края */
 .shaft-screen{
   padding:0;
-  background: repeating-linear-gradient(
-    180deg,
-    var(--shaft-wall) 0px,
-    var(--shaft-wall) 2px,
-    transparent 2px,
-    transparent 8px
-  );
+  background:var(--bg);
 }
 
-/* Полоса пассивной добычи внутри экрана */
 .idle-ticker{
   display:flex;align-items:center;gap:var(--space-3);
   background:var(--shaft-side);
@@ -145,8 +135,6 @@ button{cursor:pointer;border:none;background:none;font:inherit;color:inherit}
   overflow:hidden;
   transition:box-shadow .3s;
 }
-
-/* Свечение для активного этажа */
 .floor.active-floor{
   background:var(--shaft-active);
   box-shadow:inset 0 0 40px rgba(200,155,74,.08);
@@ -159,7 +147,6 @@ button{cursor:pointer;border:none;background:none;font:inherit;color:inherit}
   pointer-events:none;
 }
 
-/* Боковая панель с номером */
 .floor-side{
   width:44px;
   flex-shrink:0;
@@ -188,7 +175,6 @@ button{cursor:pointer;border:none;background:none;font:inherit;color:inherit}
   line-height:1;
 }
 
-/* Главное содержимое этажа */
 .floor-body{
   flex:1;
   padding:var(--space-3) var(--space-4);
@@ -229,7 +215,6 @@ button{cursor:pointer;border:none;background:none;font:inherit;color:inherit}
 }
 .floor.active-floor .floor-sub{color:#a07840}
 
-/* Прогресс-бар внутри этажа */
 .floor-progress{
   height:4px;
   background:var(--shaft-beam);
@@ -244,7 +229,6 @@ button{cursor:pointer;border:none;background:none;font:inherit;color:inherit}
   box-shadow:0 0 8px rgba(200,155,74,.6);
 }
 
-/* Кнопка внутри этажа */
 .floor-btn-wrap{
   display:flex;
   align-items:center;
@@ -285,19 +269,18 @@ button{cursor:pointer;border:none;background:none;font:inherit;color:inherit}
   color:var(--knowledge);
 }
 
-/* Замок поверх заблокированных этажей */
 .floor.floor-locked{
   opacity:.35;
   filter:grayscale(.5);
   pointer-events:none;
 }
 
-/* === ОСТАЛЬНЫЕ экраны (Padding) === */
+/* === ОСТАЛЬНЫЕ экраны === */
 .screen.active:not(.shaft-screen){
   padding:var(--space-4);
 }
 
-/* ===== КАРТОЧКИ (theory / progress) ===== */
+/* ===== КАРТОЧКИ ===== */
 .card{
   background:var(--surface);
   border:1px solid var(--border);
