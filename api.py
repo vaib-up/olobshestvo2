@@ -3,9 +3,10 @@ import re
 from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from rag import get_theory, explain_error
-from db import get_last_errors
+from db import get_last_errors, get_mine_progress, save_mine_progress
 
 app = FastAPI()
 
@@ -16,37 +17,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Раздаём mini-app по /mine/
+app.mount("/mine", StaticFiles(directory="mine", html=True), name="mine")
 
-# ── Модели запросов ──────────────────────────────────────
+
+# ── Модели ───────────────────────────────────────────────────────────────────
 
 class TheoryRequest(BaseModel):
     topic: str
-    section: Optional[str] = None  # econ, law, pol, soc, phil
+    section: Optional[str] = None
 
 class ErrorExplainRequest(BaseModel):
     question_text: str
     correct_answer: str
     section: Optional[str] = None
 
+class ProgressPayload(BaseModel):
+    tg_id: int
+    gold: int = 0
+    gems: int = 0
+    idle_accum: float = 0
+    unlocked_horizons: list[str] = []
+    completed_tasks: list[str] = []
+    unlocked_vseross: list[str] = []
+    completed_vseross: list[str] = []
+    unlocked_secret: list[str] = []
+    completed_secret: list[str] = []
+    total_answers: int = 0
+    correct_answers: int = 0
 
-# ── Очистка вывода ИИ ────────────────────────────────────
+
+# ── Очистка вывода ИИ ─────────────────────────────────────────────────────────
 
 def clean_llm_output(text: str) -> str:
-    # Убираем LaTeX: \( ... \) и \[ ... \]
     text = re.sub(r'\\\(|\\\)', '', text)
     text = re.sub(r'\\\[|\\\]', '', text)
-    # Убираем **жирный** (в т.ч. многострочный)
     text = re.sub(r'\*\*([\s\S]+?)\*\*', r'\1', text)
-    # Убираем *курсив*
     text = re.sub(r'\*([\s\S]+?)\*', r'\1', text)
-    # Убираем ### заголовки Markdown
     text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
-    # Убираем `код`
     text = re.sub(r'`(.+?)`', r'\1', text)
     return text.strip()
 
 
-# ── Эндпоинты ────────────────────────────────────────────
+# ── Эндпоинты ────────────────────────────────────────────────────────────────
 
 @app.get("/ping")
 def ping():
@@ -70,14 +83,26 @@ def explain(req: ErrorExplainRequest):
 @app.get("/errors/{user_id}")
 def user_errors(user_id: int):
     rows = get_last_errors(user_id, limit=10)
-    errors = [
-        {
-            "question": row[0],
-            "correct_answer": row[1],
-            "user_answer": row[2],
-            "topic": row[3],
-            "made_at": row[4],
-        }
-        for row in rows
-    ]
-    return {"errors": errors}
+    return {"errors": [
+        {"question": r[0], "correct_answer": r[1],
+         "user_answer": r[2], "topic": r[3], "made_at": r[4]}
+        for r in rows
+    ]}
+
+
+# ── Прогресс шахты ────────────────────────────────────────────────────────────
+
+@app.get("/progress")
+def load_progress(tg_id: int):
+    data = get_mine_progress(tg_id)
+    if data is None:
+        # Новый пользователь — возвращаем пустой прогресс
+        return {"exists": False}
+    data["exists"] = True
+    return data
+
+
+@app.post("/progress")
+def store_progress(payload: ProgressPayload):
+    save_mine_progress(payload.tg_id, payload.dict())
+    return {"ok": True}

@@ -1,5 +1,8 @@
 // Глобальное состояние приложения
 const State = {
+  // ID пользователя Telegram (заполняется в App.init)
+  tgId: null,
+
   // Ресурсы
   gold: 0,
   gems: 0,

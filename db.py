@@ -1,4 +1,5 @@
 import sqlite3
+import json
 from pathlib import Path
 
 DB_PATH = Path("stats.db")
@@ -40,9 +41,27 @@ def init_db():
         )
         """
     )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS mine_progress (
+            user_id INTEGER PRIMARY KEY,
+            gold INTEGER NOT NULL DEFAULT 0,
+            gems INTEGER NOT NULL DEFAULT 0,
+            idle_accum REAL NOT NULL DEFAULT 0,
+            unlocked_horizons TEXT NOT NULL DEFAULT '[]',
+            completed_tasks TEXT NOT NULL DEFAULT '[]',
+            unlocked_vseross TEXT NOT NULL DEFAULT '[]',
+            completed_vseross TEXT NOT NULL DEFAULT '[]',
+            unlocked_secret TEXT NOT NULL DEFAULT '[]',
+            completed_secret TEXT NOT NULL DEFAULT '[]',
+            total_answers INTEGER NOT NULL DEFAULT 0,
+            correct_answers INTEGER NOT NULL DEFAULT 0,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
     conn.commit()
     conn.close()
-
 
 
 def save_first_attempt(user_id: int, test_id: str, score: int, total: int):
@@ -63,10 +82,9 @@ def save_first_attempt(user_id: int, test_id: str, score: int, total: int):
 def get_user_stats(user_id: int):
     conn = get_conn()
     cur = conn.cursor()
-
     cur.execute(
         """
-        SELECT 
+        SELECT
             COUNT(*) as tests_count,
             SUM(score) as sum_score,
             SUM(total) as sum_total
@@ -76,7 +94,6 @@ def get_user_stats(user_id: int):
         (user_id,),
     )
     tests_count, sum_score, sum_total = cur.fetchone()
-
     cur.execute(
         """
         SELECT test_id, score, total, finished_at
@@ -87,9 +104,9 @@ def get_user_stats(user_id: int):
         (user_id,),
     )
     tests = cur.fetchall()
-
     conn.close()
     return tests_count or 0, sum_score or 0, sum_total or 0, tests
+
 
 def save_error(user_id: int, test_id: str, question_text: str,
                correct_answer: str, user_answer: str, topic: str = None):
@@ -106,8 +123,8 @@ def save_error(user_id: int, test_id: str, question_text: str,
     conn.commit()
     conn.close()
 
+
 def get_last_errors(user_id: int, limit: int = 10):
-    """Возвращает последние N ошибок пользователя."""
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
@@ -123,3 +140,74 @@ def get_last_errors(user_id: int, limit: int = 10):
     rows = cur.fetchall()
     conn.close()
     return rows
+
+
+# ── Mine progress ─────────────────────────────────────────────────────────────
+
+def get_mine_progress(user_id: int) -> dict | None:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM mine_progress WHERE user_id = ?", (user_id,))
+    row = cur.fetchone()
+    conn.close()
+    if row is None:
+        return None
+    keys = [
+        "user_id", "gold", "gems", "idle_accum",
+        "unlocked_horizons", "completed_tasks",
+        "unlocked_vseross", "completed_vseross",
+        "unlocked_secret", "completed_secret",
+        "total_answers", "correct_answers", "updated_at"
+    ]
+    d = dict(zip(keys, row))
+    # JSON-поля → списки
+    for f in ("unlocked_horizons", "completed_tasks",
+              "unlocked_vseross", "completed_vseross",
+              "unlocked_secret", "completed_secret"):
+        d[f] = json.loads(d[f])
+    return d
+
+
+def save_mine_progress(user_id: int, data: dict):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO mine_progress
+            (user_id, gold, gems, idle_accum,
+             unlocked_horizons, completed_tasks,
+             unlocked_vseross, completed_vseross,
+             unlocked_secret, completed_secret,
+             total_answers, correct_answers, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id) DO UPDATE SET
+            gold              = excluded.gold,
+            gems              = excluded.gems,
+            idle_accum        = excluded.idle_accum,
+            unlocked_horizons = excluded.unlocked_horizons,
+            completed_tasks   = excluded.completed_tasks,
+            unlocked_vseross  = excluded.unlocked_vseross,
+            completed_vseross = excluded.completed_vseross,
+            unlocked_secret   = excluded.unlocked_secret,
+            completed_secret  = excluded.completed_secret,
+            total_answers     = excluded.total_answers,
+            correct_answers   = excluded.correct_answers,
+            updated_at        = CURRENT_TIMESTAMP
+        """,
+        (
+            user_id,
+            data.get("gold", 0),
+            data.get("gems", 0),
+            data.get("idle_accum", 0),
+            json.dumps(data.get("unlocked_horizons", []), ensure_ascii=False),
+            json.dumps(data.get("completed_tasks", []), ensure_ascii=False),
+            json.dumps(data.get("unlocked_vseross", []), ensure_ascii=False),
+            json.dumps(data.get("completed_vseross", []), ensure_ascii=False),
+            json.dumps(data.get("unlocked_secret", []), ensure_ascii=False),
+            json.dumps(data.get("completed_secret", []), ensure_ascii=False),
+            data.get("total_answers", 0),
+            data.get("correct_answers", 0),
+        ),
+    )
+    conn.commit()
+    conn.close()
