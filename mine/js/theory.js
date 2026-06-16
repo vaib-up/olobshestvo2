@@ -46,7 +46,7 @@ const Theory = {
             onkeydown="if(event.key==='Enter')Theory.ask()">
         </div>
         <button class="btn-primary" onclick="Theory.ask()" id="theory-ask-btn">
-          🔍 Спросить RAG
+          🔍 Спросить
         </button>
         <div id="theory-result" style="margin-top:var(--space-4)"></div>
       </div>
@@ -156,7 +156,7 @@ const Theory = {
         </div>`;
     } finally {
       btn.disabled = false;
-      btn.textContent = '🔍 Спросить RAG';
+      btn.textContent = '🔍 Спросить';
     }
   },
 

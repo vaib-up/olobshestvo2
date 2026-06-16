@@ -72,7 +72,7 @@ const Vseross = {
         <button class="${btnCls}" onclick="Vseross.handleBtn('${h.id}', ${canUnlock})">${btnTxt}</button>
       </div>
       <div class="horizon-footer">
-        <div class="progress-meta"><span>Прогресс</span><span>${pct}%</span></div>
+        <div class="progress-meta"><span>Прогресс </span><span>${pct}%</span></div>
         <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
       </div>`;
     return card;
