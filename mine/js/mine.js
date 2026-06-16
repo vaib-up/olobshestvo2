@@ -20,7 +20,6 @@ const Mine = {
     screen.classList.add('shaft-screen');
     screen.innerHTML = '';
 
-    // Полоса пассивной добычи
     const ticker = document.createElement('div');
     ticker.className = 'idle-ticker';
     ticker.innerHTML = `
@@ -35,35 +34,43 @@ const Mine = {
       <button class="collect-btn" id="collect-btn" onclick="Mine.collect()">Собрать</button>`;
     screen.appendChild(ticker);
 
-    // Этажи
     State.mineData.forEach((h, i) => {
       screen.appendChild(this._buildFloor(h, i));
     });
   },
 
   _buildFloor(h, idx) {
-    const unlocked  = State.unlockedHorizons.includes(h.id);
-    const prevOk    = idx === 0 || State.mineData[idx - 1].tasks
-      .every(t => State.completedTasks.has(t.id));
-    const canUnlock = !unlocked && prevOk;
+    const unlocked = State.unlockedHorizons.includes(h.id);
+    const cost     = h.unlockCost ?? 4;
+    const canAfford = State.gold >= cost;
 
     const done    = h.tasks.filter(t => State.completedTasks.has(t.id)).length;
     const total   = h.tasks.length;
     const pct     = total ? Math.round(done / total * 100) : 0;
     const allDone = done === total && total > 0;
 
-    let btnCls = 'btn-dig', btnTxt = '⛏ Копать';
-    if (canUnlock)      { btnCls = 'btn-dig unlock'; btnTxt = '🔓 Открыть'; }
-    else if (!unlocked) { btnCls = 'btn-dig locked'; btnTxt = '🔒'; }
-    else if (allDone)   { btnCls = 'btn-dig done';   btnTxt = '✓ Готово'; }
+    let btnCls, btnTxt;
+    if (unlocked && allDone) {
+      btnCls = 'btn-dig done';
+      btnTxt = '✓ Готово';
+    } else if (unlocked) {
+      btnCls = 'btn-dig';
+      btnTxt = '⛏ Копать';
+    } else if (canAfford) {
+      btnCls = 'btn-dig unlock';
+      btnTxt = `🔓 ${cost}⚡`;
+    } else {
+      btnCls = 'btn-dig locked';
+      btnTxt = `🔒 ${cost}⚡`;
+    }
 
     const isActive = unlocked && !allDone;
-    const isLocked = !unlocked && !canUnlock;
+    const isLocked = !unlocked && !canAfford;
 
     const floor = document.createElement('div');
     floor.className = 'floor' +
-      (isActive  ? ' active-floor'  : '') +
-      (isLocked  ? ' floor-locked'  : '');
+      (isActive ? ' active-floor' : '') +
+      (isLocked ? ' floor-locked'  : '');
 
     floor.innerHTML = `
       <div class="floor-side">
@@ -83,27 +90,36 @@ const Mine = {
       </div>
 
       <div class="floor-btn-wrap">
-        <button class="${btnCls}" onclick="Mine.handleBtn('${h.id}', ${canUnlock})">${btnTxt}</button>
+        <button class="${btnCls}" onclick="Mine.handleBtn('${h.id}')">${btnTxt}</button>
       </div>`;
 
     return floor;
   },
 
-  handleBtn(hid, canUnlock) {
-    if (canUnlock) { this.unlock(hid); return; }
+  handleBtn(hid) {
     const h = State.mineData.find(x => x.id === hid);
     if (!h) return;
+
+    if (!State.unlockedHorizons.includes(h.id)) {
+      // Попытка купить
+      const cost = h.unlockCost ?? 4;
+      if (State.gold < cost) {
+        UI.toast(`Недостаточно ⚡ (нужно ${cost})`, 'gold');
+        return;
+      }
+      State.gold -= cost;
+      State.unlockedHorizons.push(hid);
+      UI.updateResources();
+      UI.particle(`🔓 ${h.name}`, h.color);
+      UI.toast(`Открыт: ${h.name}!`, 'green');
+      App.renderAll();
+      return;
+    }
+
+    // Горизонт уже открыт — идём копать
     const task = h.tasks.find(t => !State.completedTasks.has(t.id));
     if (task) this.openTask(h, task);
     else UI.toast('Горизонт пройден! 🎉', 'green');
-  },
-
-  unlock(hid) {
-    State.unlockedHorizons.push(hid);
-    const h = State.mineData.find(x => x.id === hid);
-    UI.particle(`🔓 ${h.name}`, h.color);
-    UI.toast(`Открыт горизонт: ${h.name}!`, 'green');
-    App.renderAll();
   },
 
   openTask(horizon, task) {
@@ -191,13 +207,6 @@ const Mine = {
         State.gems += 1;
         UI.particle('💎 +1', '#4a9ebb');
         setTimeout(() => UI.toast(`"${horizon.name}" пройден! +1 💎`, 'green'), 400);
-        const idx = State.mineData.indexOf(horizon);
-        if (idx < State.mineData.length - 1) {
-          const next = State.mineData[idx + 1];
-          if (!State.unlockedHorizons.includes(next.id)) {
-            setTimeout(() => this.unlock(next.id), 1200);
-          }
-        }
       }
     }
     Modal.close();
