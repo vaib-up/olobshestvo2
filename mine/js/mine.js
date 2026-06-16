@@ -17,19 +17,10 @@ const Mine = {
 
   render() {
     const screen = document.getElementById('screen-mine');
+    screen.classList.add('shaft-screen');
     screen.innerHTML = '';
 
-    const header = document.createElement('div');
-    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-4)';
-    header.innerHTML = `
-      <div style="font-size:var(--text-lg);font-weight:700">Шахта</div>
-      <div style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);
-        background:var(--surface-2);border:1px solid var(--border);
-        border-radius:var(--radius-full);padding:var(--space-1) var(--space-3)" id="depth-badge">
-        Горизонт ${State.unlockedHorizons.length}/${State.mineData.length}
-      </div>`;
-    screen.appendChild(header);
-
+    // Полоса пассивной добычи
     const ticker = document.createElement('div');
     ticker.className = 'idle-ticker';
     ticker.innerHTML = `
@@ -38,50 +29,64 @@ const Mine = {
         <div class="idle-label">Пассивная добыча</div>
         <div class="idle-rate" id="idle-rate">+0 ⚡/мин</div>
       </div>
+      <div style="font-size:var(--text-xs);color:var(--text-muted)">
+        Горизонт <strong style="color:var(--primary)">${State.unlockedHorizons.length}</strong>/${State.mineData.length}
+      </div>
       <button class="collect-btn" id="collect-btn" onclick="Mine.collect()">Собрать</button>`;
     screen.appendChild(ticker);
 
+    // Этажи
     State.mineData.forEach((h, i) => {
-      screen.appendChild(this._buildHorizonCard(h, i));
+      screen.appendChild(this._buildFloor(h, i));
     });
   },
 
-  _buildHorizonCard(h, idx) {
-    const unlocked = State.unlockedHorizons.includes(h.id);
-    const prevOk = idx === 0 || State.mineData[idx - 1].tasks
+  _buildFloor(h, idx) {
+    const unlocked  = State.unlockedHorizons.includes(h.id);
+    const prevOk    = idx === 0 || State.mineData[idx - 1].tasks
       .every(t => State.completedTasks.has(t.id));
     const canUnlock = !unlocked && prevOk;
 
-    const done = h.tasks.filter(t => State.completedTasks.has(t.id)).length;
-    const total = h.tasks.length;
-    const pct = total ? Math.round(done / total * 100) : 0;
-    const allDone = done === total;
+    const done    = h.tasks.filter(t => State.completedTasks.has(t.id)).length;
+    const total   = h.tasks.length;
+    const pct     = total ? Math.round(done / total * 100) : 0;
+    const allDone = done === total && total > 0;
 
-    let btnCls = 'btn-dig', btnTxt = 'Копать';
-    if (canUnlock)       { btnCls = 'btn-dig unlock'; btnTxt = '🔓 Открыть'; }
-    else if (!unlocked)  { btnCls = 'btn-dig locked'; btnTxt = '🔒 Закрыто'; }
-    else if (allDone)    { btnCls = 'btn-dig done';   btnTxt = '✓ Пройден';  }
+    let btnCls = 'btn-dig', btnTxt = '⛏ Копать';
+    if (canUnlock)      { btnCls = 'btn-dig unlock'; btnTxt = '🔓 Открыть'; }
+    else if (!unlocked) { btnCls = 'btn-dig locked'; btnTxt = '🔒'; }
+    else if (allDone)   { btnCls = 'btn-dig done';   btnTxt = '✓ Готово'; }
 
-    const card = document.createElement('div');
     const isActive = unlocked && !allDone;
-    card.className = 'horizon-card' +
-      ((!unlocked && !canUnlock) ? ' locked' : '') +
-      (isActive ? ' active-h' : '');
+    const isLocked = !unlocked && !canUnlock;
 
-    card.innerHTML = `
-      <div class="horizon-top">
-        <div class="horizon-icon" style="background:${h.colorDim};color:${h.color}">${h.icon}</div>
-        <div class="horizon-info">
-          <div class="horizon-name">${h.name}</div>
-          <div class="horizon-sub">${done}/${total} заданий · +${done * h.incomeRate} ⚡/мин</div>
-        </div>
-        <button class="${btnCls}" onclick="Mine.handleBtn('${h.id}', ${canUnlock})">${btnTxt}</button>
+    const floor = document.createElement('div');
+    floor.className = 'floor' +
+      (isActive  ? ' active-floor'  : '') +
+      (isLocked  ? ' floor-locked'  : '');
+
+    floor.innerHTML = `
+      <div class="floor-side">
+        <div class="floor-num">${idx + 1}</div>
+        <div class="floor-icon">${h.icon}</div>
       </div>
-      <div class="horizon-footer">
-        <div class="progress-meta"><span>Прогресс</span><span>${pct}%</span></div>
-        <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+
+      <div class="floor-body">
+        <div class="floor-name">${h.name}</div>
+        <div class="floor-meta">
+          <span class="floor-sub">${done}/${total} · +${done * (h.incomeRate || 1)}⚡/мин</span>
+          <span class="floor-sub">${pct}%</span>
+        </div>
+        <div class="floor-progress">
+          <div class="floor-progress-fill" style="width:${pct}%"></div>
+        </div>
+      </div>
+
+      <div class="floor-btn-wrap">
+        <button class="${btnCls}" onclick="Mine.handleBtn('${h.id}', ${canUnlock})">${btnTxt}</button>
       </div>`;
-    return card;
+
+    return floor;
   },
 
   handleBtn(hid, canUnlock) {
@@ -133,7 +138,7 @@ const Mine = {
         <div class="quiz-feedback show ${ok ? 'ok' : 'fail'}">
           ${ok
             ? `🎉 Задание пройдено! +${task.questions.length * 5} ⚡`
-            : `Не все ответы верны. Попробуй ещё раз позже.`}
+            : `Не все ответы верны. Попробуй ещё раз.`}
         </div>
         <button class="btn-primary" style="margin-top:var(--space-4)"
           onclick="Mine.finishTask(${ok})">
@@ -203,7 +208,7 @@ const Mine = {
     let r = 0;
     for (const h of State.mineData) {
       if (!State.unlockedHorizons.includes(h.id)) continue;
-      r += h.tasks.filter(t => State.completedTasks.has(t.id)).length * h.incomeRate;
+      r += h.tasks.filter(t => State.completedTasks.has(t.id)).length * (h.incomeRate || 1);
     }
     return r;
   },
