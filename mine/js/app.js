@@ -1,36 +1,87 @@
-// Точка входа — инициализация, навигация, сохранение прогресса
 const App = {
 
   API: 'https://olobshestvo2.online',
   LS_KEY: 'mine_progress_v1',
 
-  init() {
+  async init() {
+    // 1. tgId
     if (window.Telegram?.WebApp) {
       Telegram.WebApp.expand();
       Telegram.WebApp.setHeaderColor('#0f0e0c');
-      const user = Telegram.WebApp.initDataUnsafe?.user;
-      State.tgId = user?.id ?? null;
+      State.tgId = Telegram.WebApp.initDataUnsafe?.user?.id ?? null;
     }
 
-    Promise.all([
+    // 2. Загружаем JSON-данные (не трогаем State)
+    await Promise.all([
       Mine.loadData(),
       Vseross.loadData(),
       Secret.loadData(),
-    ]).then(async () => {
-      await this.loadProgress();
-      Mine.render();
-      Theory.render();
-      Vseross.render();
-      Secret.render();
-      Progress.render();
-      UI.updateResources();
-      Mine.startIdleTick();
-    });
+    ]);
+
+    // 3. Восстанавливаем прогресс (полностью перезаписывает State)
+    const restored = await this._loadProgress();
+
+    // 4. Если прогресса нет — новый пользователь
+    if (!restored && State.mineData.length) {
+      State.unlockedHorizons = [State.mineData[0].id];
+    }
+
+    // 5. Рендерим всё
+    Mine.render();
+    Theory.render();
+    Vseross.render();
+    Secret.render();
+    Progress.render();
+    UI.updateResources();
+    Mine.startIdleTick();
   },
 
-  // ── Сериализация / десериализация State ───────────────────────────
-  _stateToObj() {
-    return {
+  // ── Загрузка: сервер → localStorage → null ──────────────────────────────
+  async _loadProgress() {
+    // Пробуем сервер
+    if (State.tgId) {
+      try {
+        const r = await fetch(`${this.API}/progress?tg_id=${State.tgId}`);
+        if (r.ok) {
+          const d = await r.json();
+          if (d.exists) {
+            this._apply(d);
+            return true;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Фоллбэк: localStorage
+    try {
+      const raw = localStorage.getItem(this.LS_KEY);
+      if (raw) {
+        this._apply(JSON.parse(raw));
+        return true;
+      }
+    } catch (_) {}
+
+    return false; // новый пользователь
+  },
+
+  // ── Применяем данные — БЕЗ условий, полная перезапись ────────────────
+  _apply(d) {
+    State.gold               = d.gold             ?? 0;
+    State.gems               = d.gems             ?? 0;
+    State.idleAccum          = d.idle_accum        ?? 0;
+    State.totalAnswers       = d.total_answers     ?? 0;
+    State.correctAnswers     = d.correct_answers   ?? 0;
+    State.unlockedHorizons   = d.unlocked_horizons ?? [];
+    State.completedTasks     = new Set(d.completed_tasks   ?? []);
+    State.unlockedVseross    = d.unlocked_vseross  ?? [];
+    State.completedVseross   = new Set(d.completed_vseross ?? []);
+    State.unlockedSecret     = d.unlocked_secret   ?? [];
+    State.completedSecret    = new Set(d.completed_secret  ?? []);
+  },
+
+  // ── Сохранение: localStorage мгновенно + сервер асинхронно ─────────────
+  saveProgress() {
+    const obj = {
       gold:               State.gold,
       gems:               State.gems,
       idle_accum:         State.idleAccum,
@@ -43,78 +94,9 @@ const App = {
       total_answers:      State.totalAnswers,
       correct_answers:    State.correctAnswers,
     };
-  },
 
-  _applyObj(d) {
-    if (!d) return;
-    State.gold           = d.gold            ?? State.gold;
-    State.gems           = d.gems            ?? State.gems;
-    State.idleAccum      = d.idle_accum      ?? State.idleAccum;
-    State.totalAnswers   = d.total_answers   ?? State.totalAnswers;
-    State.correctAnswers = d.correct_answers ?? State.correctAnswers;
-    if (Array.isArray(d.unlocked_horizons) && d.unlocked_horizons.length)
-      State.unlockedHorizons = d.unlocked_horizons;
-    if (Array.isArray(d.completed_tasks)   && d.completed_tasks.length)
-      State.completedTasks   = new Set(d.completed_tasks);
-    if (Array.isArray(d.unlocked_vseross)  && d.unlocked_vseross.length)
-      State.unlockedVseross  = d.unlocked_vseross;
-    if (Array.isArray(d.completed_vseross) && d.completed_vseross.length)
-      State.completedVseross = new Set(d.completed_vseross);
-    if (Array.isArray(d.unlocked_secret)   && d.unlocked_secret.length)
-      State.unlockedSecret   = d.unlocked_secret;
-    if (Array.isArray(d.completed_secret)  && d.completed_secret.length)
-      State.completedSecret  = new Set(d.completed_secret);
-  },
-
-  // ── Загрузка: сервер → localStorage ──────────────────────────────────
-  async loadProgress() {
-    let loaded = false;
-
-    // 1. Пробуем сервер (только если есть tgId)
-    if (State.tgId) {
-      try {
-        const resp = await fetch(`${this.API}/progress?tg_id=${State.tgId}`);
-        if (resp.ok) {
-          const d = await resp.json();
-          if (d.exists) {
-            this._applyObj(d);
-            loaded = true;
-          }
-        }
-      } catch (e) {
-        console.warn('Сервер недоступен, берём localStorage:', e);
-      }
-    }
-
-    // 2. Если сервер не ответил — берём из localStorage
-    if (!loaded) {
-      try {
-        const raw = localStorage.getItem(this.LS_KEY);
-        if (raw) {
-          this._applyObj(JSON.parse(raw));
-          loaded = true;
-        }
-      } catch (e) {
-        console.warn('localStorage недоступен:', e);
-      }
-    }
-
-    // 3. Новый пользователь — открываем первый горизонт
-    if (!loaded && State.mineData.length) {
-      State.unlockedHorizons = [State.mineData[0].id];
-    }
-  },
-
-  // ── Сохранение: localStorage сразу + сервер асинхронно ───────────────
-  saveProgress() {
-    const obj = this._stateToObj();
-
-    // Мгновенно в localStorage — работает всегда
-    try {
-      localStorage.setItem(this.LS_KEY, JSON.stringify(obj));
-    } catch (e) {
-      console.warn('localStorage ошибка:', e);
-    }
+    // Мгновенно — всегда
+    try { localStorage.setItem(this.LS_KEY, JSON.stringify(obj)); } catch (_) {}
 
     // Асинхронно на сервер — если есть tgId
     if (State.tgId) {
@@ -122,10 +104,11 @@ const App = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tg_id: State.tgId, ...obj }),
-      }).catch(e => console.warn('Сервер недоступен при сохранении:', e));
+      }).catch(() => {});
     }
   },
 
+  // ── Навигация ──────────────────────────────────────────────────────────────────
   switchScreen(name) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
