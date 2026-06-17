@@ -6,7 +6,12 @@ const Mine = {
       const res = await fetch('data/mine_data.json');
       const data = await res.json();
       State.mineData = data.horizons;
-      if (State.mineData.length && !State.unlockedHorizons.length) {
+      // Первый горизонт бесплатно — только если это новый пользователь
+      // (сервер ещё не ответил / tg_id не было)
+      if (State.mineData.length
+          && !State.unlockedHorizons.length
+          && State.completedTasks.size === 0
+          && State.gold === 0) {
         State.unlockedHorizons.push(State.mineData[0].id);
       }
     } catch (e) {
@@ -40,8 +45,8 @@ const Mine = {
   },
 
   _buildFloor(h, idx) {
-    const unlocked = State.unlockedHorizons.includes(h.id);
-    const cost     = h.unlockCost ?? 4;
+    const unlocked  = State.unlockedHorizons.includes(h.id);
+    const cost      = h.unlockCost ?? 4;
     const canAfford = State.gold >= cost;
 
     const done    = h.tasks.filter(t => State.completedTasks.has(t.id)).length;
@@ -101,7 +106,6 @@ const Mine = {
     if (!h) return;
 
     if (!State.unlockedHorizons.includes(h.id)) {
-      // Попытка купить
       const cost = h.unlockCost ?? 4;
       if (State.gold < cost) {
         UI.toast(`Недостаточно ⚡ (нужно ${cost})`, 'gold');
@@ -112,11 +116,10 @@ const Mine = {
       UI.updateResources();
       UI.particle(`🔓 ${h.name}`, h.color);
       UI.toast(`Открыт: ${h.name}!`, 'green');
-      App.renderAll();
+      App.renderAll(); // сохраняет внутри
       return;
     }
 
-    // Горизонт уже открыт — идём копать
     const task = h.tasks.find(t => !State.completedTasks.has(t.id));
     if (task) this.openTask(h, task);
     else UI.toast('Горизонт пройден! 🎉', 'green');
@@ -210,7 +213,7 @@ const Mine = {
       }
     }
     Modal.close();
-    App.renderAll();
+    App.renderAll(); // сохраняет внутри
   },
 
   _idleRate() {
@@ -223,11 +226,21 @@ const Mine = {
   },
 
   startIdleTick() {
+    let saveTick = 0;
     setInterval(() => {
       const r = this._idleRate();
       const el = document.getElementById('idle-rate');
       if (el) el.textContent = `+${r} ⚡/мин`;
-      if (r > 0) { State.idleAccum += r / 60; UI.updateResources(); }
+      if (r > 0) {
+        State.idleAccum += r / 60;
+        UI.updateResources();
+      }
+      // Сохраняем idleAccum каждые 30 секунд
+      saveTick++;
+      if (saveTick >= 30) {
+        saveTick = 0;
+        App.saveProgress();
+      }
     }, 1000);
   },
 
@@ -239,5 +252,6 @@ const Mine = {
     UI.updateResources();
     UI.particle(`+${n} ⚡`, '#c89b4a');
     UI.toast(`Собрано ${n} ⚡`, 'gold');
+    App.saveProgress(); // сохраняем сразу после сбора
   },
 };
