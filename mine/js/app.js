@@ -4,29 +4,24 @@ const App = {
   LS_KEY: 'mine_progress_v1',
 
   async init() {
-    // 1. tgId
     if (window.Telegram?.WebApp) {
       Telegram.WebApp.expand();
       Telegram.WebApp.setHeaderColor('#0f0e0c');
       State.tgId = Telegram.WebApp.initDataUnsafe?.user?.id ?? null;
     }
 
-    // 2. Загружаем JSON-данные (не трогаем State)
     await Promise.all([
       Mine.loadData(),
       Vseross.loadData(),
       Secret.loadData(),
     ]);
 
-    // 3. Восстанавливаем прогресс
-    const { restored, source } = await this._loadProgress();
+    const { restored } = await this._loadProgress();
 
-    // 4. Новый пользователь
     if (!restored && State.mineData.length) {
       State.unlockedHorizons = [State.mineData[0].id];
     }
 
-    // 5. Рендерим
     Mine.render();
     Theory.render();
     Vseross.render();
@@ -34,36 +29,8 @@ const App = {
     Progress.render();
     UI.updateResources();
     Mine.startIdleTick();
-
-    // 6. Диагностика — временный тост
-    const lsRaw = (() => { try { return localStorage.getItem(this.LS_KEY); } catch(_){return null;} })();
-    const lsObj = lsRaw ? JSON.parse(lsRaw) : null;
-    const diagLines = [
-      `tgId: ${State.tgId ?? 'null'}`,
-      `source: ${source}`,
-      `gold: ${State.gold}`,
-      `horizons: ${State.unlockedHorizons.length}`,
-      `tasks: ${State.completedTasks.size}`,
-      `ls_gold: ${lsObj?.gold ?? '—'}`,
-    ];
-    this._diagToast(diagLines.join(' | '));
   },
 
-  _diagToast(msg) {
-    const el = document.createElement('div');
-    el.style.cssText = [
-      'position:fixed', 'top:10px', 'left:8px', 'right:8px',
-      'background:#1a1a2e', 'color:#e2c97e', 'border:1px solid #e2c97e',
-      'border-radius:10px', 'padding:10px 12px', 'font-size:11px',
-      'line-height:1.6', 'z-index:9999', 'word-break:break-all',
-      'white-space:pre-wrap',
-    ].join(';');
-    el.textContent = '🔧 ' + msg;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 8000);
-  },
-
-  // ── Загрузка ──────────────────────────────────────────────────────────────────
   async _loadProgress() {
     if (State.tgId) {
       try {
@@ -89,7 +56,6 @@ const App = {
     return { restored: false, source: 'none' };
   },
 
-  // ── Применяем — полная перезапись ──────────────────────────────────
   _apply(d) {
     State.gold             = d.gold             ?? 0;
     State.gems             = d.gems             ?? 0;
@@ -104,7 +70,6 @@ const App = {
     State.completedSecret  = new Set(d.completed_secret  ?? []);
   },
 
-  // ── Сохранение ──────────────────────────────────────────────────────────────────
   saveProgress() {
     const obj = {
       gold:               State.gold,
@@ -129,7 +94,6 @@ const App = {
     }
   },
 
-  // ── Навигация ──────────────────────────────────────────────────────────────────
   switchScreen(name) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
