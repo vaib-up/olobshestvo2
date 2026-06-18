@@ -18,15 +18,15 @@ const App = {
       Secret.loadData(),
     ]);
 
-    // 3. Восстанавливаем прогресс (полностью перезаписывает State)
-    const restored = await this._loadProgress();
+    // 3. Восстанавливаем прогресс
+    const { restored, source } = await this._loadProgress();
 
-    // 4. Если прогресса нет — новый пользователь
+    // 4. Новый пользователь
     if (!restored && State.mineData.length) {
       State.unlockedHorizons = [State.mineData[0].id];
     }
 
-    // 5. Рендерим всё
+    // 5. Рендерим
     Mine.render();
     Theory.render();
     Vseross.render();
@@ -34,11 +34,37 @@ const App = {
     Progress.render();
     UI.updateResources();
     Mine.startIdleTick();
+
+    // 6. Диагностика — временный тост
+    const lsRaw = (() => { try { return localStorage.getItem(this.LS_KEY); } catch(_){return null;} })();
+    const lsObj = lsRaw ? JSON.parse(lsRaw) : null;
+    const diagLines = [
+      `tgId: ${State.tgId ?? 'null'}`,
+      `source: ${source}`,
+      `gold: ${State.gold}`,
+      `horizons: ${State.unlockedHorizons.length}`,
+      `tasks: ${State.completedTasks.size}`,
+      `ls_gold: ${lsObj?.gold ?? '—'}`,
+    ];
+    this._diagToast(diagLines.join(' | '));
   },
 
-  // ── Загрузка: сервер → localStorage → null ──────────────────────────────
+  _diagToast(msg) {
+    const el = document.createElement('div');
+    el.style.cssText = [
+      'position:fixed', 'top:10px', 'left:8px', 'right:8px',
+      'background:#1a1a2e', 'color:#e2c97e', 'border:1px solid #e2c97e',
+      'border-radius:10px', 'padding:10px 12px', 'font-size:11px',
+      'line-height:1.6', 'z-index:9999', 'word-break:break-all',
+      'white-space:pre-wrap',
+    ].join(';');
+    el.textContent = '🔧 ' + msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 8000);
+  },
+
+  // ── Загрузка ──────────────────────────────────────────────────────────────────
   async _loadProgress() {
-    // Пробуем сервер
     if (State.tgId) {
       try {
         const r = await fetch(`${this.API}/progress?tg_id=${State.tgId}`);
@@ -46,40 +72,39 @@ const App = {
           const d = await r.json();
           if (d.exists) {
             this._apply(d);
-            return true;
+            return { restored: true, source: 'server' };
           }
         }
       } catch (_) {}
     }
 
-    // Фоллбэк: localStorage
     try {
       const raw = localStorage.getItem(this.LS_KEY);
       if (raw) {
         this._apply(JSON.parse(raw));
-        return true;
+        return { restored: true, source: 'localStorage' };
       }
     } catch (_) {}
 
-    return false; // новый пользователь
+    return { restored: false, source: 'none' };
   },
 
-  // ── Применяем данные — БЕЗ условий, полная перезапись ────────────────
+  // ── Применяем — полная перезапись ──────────────────────────────────
   _apply(d) {
-    State.gold               = d.gold             ?? 0;
-    State.gems               = d.gems             ?? 0;
-    State.idleAccum          = d.idle_accum        ?? 0;
-    State.totalAnswers       = d.total_answers     ?? 0;
-    State.correctAnswers     = d.correct_answers   ?? 0;
-    State.unlockedHorizons   = d.unlocked_horizons ?? [];
-    State.completedTasks     = new Set(d.completed_tasks   ?? []);
-    State.unlockedVseross    = d.unlocked_vseross  ?? [];
-    State.completedVseross   = new Set(d.completed_vseross ?? []);
-    State.unlockedSecret     = d.unlocked_secret   ?? [];
-    State.completedSecret    = new Set(d.completed_secret  ?? []);
+    State.gold             = d.gold             ?? 0;
+    State.gems             = d.gems             ?? 0;
+    State.idleAccum        = d.idle_accum        ?? 0;
+    State.totalAnswers     = d.total_answers     ?? 0;
+    State.correctAnswers   = d.correct_answers   ?? 0;
+    State.unlockedHorizons = d.unlocked_horizons ?? [];
+    State.completedTasks   = new Set(d.completed_tasks   ?? []);
+    State.unlockedVseross  = d.unlocked_vseross  ?? [];
+    State.completedVseross = new Set(d.completed_vseross ?? []);
+    State.unlockedSecret   = d.unlocked_secret   ?? [];
+    State.completedSecret  = new Set(d.completed_secret  ?? []);
   },
 
-  // ── Сохранение: localStorage мгновенно + сервер асинхронно ─────────────
+  // ── Сохранение ──────────────────────────────────────────────────────────────────
   saveProgress() {
     const obj = {
       gold:               State.gold,
@@ -94,11 +119,7 @@ const App = {
       total_answers:      State.totalAnswers,
       correct_answers:    State.correctAnswers,
     };
-
-    // Мгновенно — всегда
     try { localStorage.setItem(this.LS_KEY, JSON.stringify(obj)); } catch (_) {}
-
-    // Асинхронно на сервер — если есть tgId
     if (State.tgId) {
       fetch(`${this.API}/progress`, {
         method: 'POST',
