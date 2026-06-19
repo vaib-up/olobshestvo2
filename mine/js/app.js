@@ -2,12 +2,9 @@
 const App = {
 
   API: 'https://olobshestvo2.online',
-
-  // Все ключи localStorage которые мы когда-либо использовали
   _LEGACY_LS_KEYS: ['mine_progress_v1', 'theory_history'],
 
   async init() {
-    // Удаляем все старые локальные данные — единственный источник правды — сервер
     this._LEGACY_LS_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
 
     if (window.Telegram?.WebApp) {
@@ -15,13 +12,13 @@ const App = {
       Telegram.WebApp.setHeaderColor('#0f0e0c');
     }
 
-    // tgId: сначала из ?uid= (бот передаёт явно),
-    // запасной — initDataUnsafe (работает только в клиенте Telegram)
     const urlUid = new URLSearchParams(window.location.search).get('uid');
     const twaUid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id ?? null;
-    State.tgId = urlUid ? Number(urlUid) : twaUid;
+    State.tgId   = urlUid ? Number(urlUid) : twaUid;
 
-    // Загружаем все данные параллельно, затем рендерим
+    // Для отладки: запомним источник tgId до загрузки
+    const tgIdSource = urlUid ? 'url' : (twaUid ? 'twa' : 'null');
+
     await Promise.all([
       Mine.loadData(),
       Vseross.loadData(),
@@ -29,6 +26,13 @@ const App = {
       this.loadProgress(),
       Theory.loadHistory(),
     ]);
+
+    // Дебаг-тост: что загрузили и откуда tgId
+    setTimeout(() => {
+      const goldGems = `⚡${State.gold} 💎${State.gems}`;
+      const tasks    = `tasks:${State.completedTasks.size}`;
+      UI.toast(`id:${State.tgId}(${tgIdSource}) ${goldGems} ${tasks}`, 'gold');
+    }, 600);
 
     Mine.render();
     Theory.render();
@@ -39,7 +43,6 @@ const App = {
     Mine.startIdleTick();
   },
 
-  // ── Загрузка прогресса с сервера ────────────────────────────
   async loadProgress() {
     if (!State.tgId) {
       if (State.mineData.length) State.unlockedHorizons = [State.mineData[0].id];
@@ -69,7 +72,6 @@ const App = {
     }
   },
 
-  // ── Сохранение прогресса на сервер ──────────────────────────
   saveProgress() {
     if (!State.tgId) return;
     fetch(`${this.API}/progress`, {
