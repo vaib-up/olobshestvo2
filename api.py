@@ -1,4 +1,3 @@
-# api.py
 import re
 from typing import Optional
 from fastapi import FastAPI, HTTPException
@@ -6,7 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from rag import get_theory, explain_error
-from db import get_last_errors, get_mine_progress, save_mine_progress
+from db import (
+    get_last_errors,
+    get_mine_progress, save_mine_progress,
+    get_theory_history, save_theory_history_item,
+)
 
 app = FastAPI()
 
@@ -17,7 +20,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Раздаём mini-app по /mine/
 app.mount("/mine", StaticFiles(directory="mine", html=True), name="mine")
 
 
@@ -46,8 +48,14 @@ class ProgressPayload(BaseModel):
     total_answers: int = 0
     correct_answers: int = 0
 
+class TheoryHistoryPayload(BaseModel):
+    tg_id: int
+    topic: str
+    answer: str
+    ts: int  # Unix timestamp в миллисекундах (Date.now())
 
-# ── Очистка вывода ИИ ─────────────────────────────────────────────────────────
+
+# ── Очистка вывода LLM ───────────────────────────────────────────────────────
 
 def clean_llm_output(text: str) -> str:
     text = re.sub(r'\\\(|\\\)', '', text)
@@ -90,13 +98,12 @@ def user_errors(user_id: int):
     ]}
 
 
-# ── Прогресс шахты ────────────────────────────────────────────────────────────
+# ── Прогресс шахты ───────────────────────────────────────────────────────────
 
 @app.get("/progress")
 def load_progress(tg_id: int):
     data = get_mine_progress(tg_id)
     if data is None:
-        # Новый пользователь — возвращаем пустой прогресс
         return {"exists": False}
     data["exists"] = True
     return data
@@ -105,4 +112,17 @@ def load_progress(tg_id: int):
 @app.post("/progress")
 def store_progress(payload: ProgressPayload):
     save_mine_progress(payload.tg_id, payload.dict())
+    return {"ok": True}
+
+
+# ── История теории ───────────────────────────────────────────────────────────
+
+@app.get("/theory_history")
+def load_theory_history(tg_id: int):
+    return get_theory_history(tg_id, limit=10)
+
+
+@app.post("/theory_history")
+def store_theory_history(payload: TheoryHistoryPayload):
+    save_theory_history_item(payload.tg_id, payload.topic, payload.answer, payload.ts)
     return {"ok": True}

@@ -60,6 +60,22 @@ def init_db():
         )
         """
     )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS theory_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            topic TEXT NOT NULL,
+            answer TEXT NOT NULL,
+            ts INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    # Индекс для быстрой выборки последних записей пользователя
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_theory_history_user ON theory_history(user_id, ts DESC)"
+    )
     conn.commit()
     conn.close()
 
@@ -142,7 +158,7 @@ def get_last_errors(user_id: int, limit: int = 10):
     return rows
 
 
-# ── Mine progress ─────────────────────────────────────────────────────────────
+# ── Mine progress ────────────────────────────────────────────────────────────
 
 def get_mine_progress(user_id: int) -> dict | None:
     conn = get_conn()
@@ -160,7 +176,6 @@ def get_mine_progress(user_id: int) -> dict | None:
         "total_answers", "correct_answers", "updated_at"
     ]
     d = dict(zip(keys, row))
-    # JSON-поля → списки
     for f in ("unlocked_horizons", "completed_tasks",
               "unlocked_vseross", "completed_vseross",
               "unlocked_secret", "completed_secret"):
@@ -208,6 +223,56 @@ def save_mine_progress(user_id: int, data: dict):
             data.get("total_answers", 0),
             data.get("correct_answers", 0),
         ),
+    )
+    conn.commit()
+    conn.close()
+
+
+# ── Theory history ───────────────────────────────────────────────────────────
+
+def get_theory_history(user_id: int, limit: int = 10) -> list[dict]:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT topic, answer, ts
+        FROM theory_history
+        WHERE user_id = ?
+        ORDER BY ts DESC
+        LIMIT ?
+        """,
+        (user_id, limit),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return [{"topic": r[0], "answer": r[1], "ts": r[2]} for r in rows]
+
+
+def save_theory_history_item(user_id: int, topic: str, answer: str, ts: int):
+    conn = get_conn()
+    cur = conn.cursor()
+    # Удаляем предыдущую запись с тем же topic у этого пользователя (дедупликация)
+    cur.execute(
+        "DELETE FROM theory_history WHERE user_id = ? AND lower(topic) = lower(?)",
+        (user_id, topic),
+    )
+    # Вставляем новую
+    cur.execute(
+        "INSERT INTO theory_history (user_id, topic, answer, ts) VALUES (?, ?, ?, ?)",
+        (user_id, topic, answer, ts),
+    )
+    # Оставляем только последние 10 записей пользователя
+    cur.execute(
+        """
+        DELETE FROM theory_history
+        WHERE user_id = ? AND id NOT IN (
+            SELECT id FROM theory_history
+            WHERE user_id = ?
+            ORDER BY ts DESC
+            LIMIT 10
+        )
+        """,
+        (user_id, user_id),
     )
     conn.commit()
     conn.close()
