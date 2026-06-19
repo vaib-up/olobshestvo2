@@ -3,50 +3,43 @@ const Theory = {
 
   API: 'https://olobshestvo2.online',
   MAX_HISTORY: 10,
-  _history: [],  // кэш для текущей сессии
+  _history: [],  // кэш для текущей сессии, заполняется один раз в App.init()
 
-  // ── История с сервера ────────────────────────────────────────
-  async _loadHistory() {
-    if (!State.tgId) return [];
+  // ── Загрузка истории (App.init() вызывает один раз) ───────────────
+  async loadHistory() {
+    if (!State.tgId) return;
     try {
       const r = await fetch(`${this.API}/theory_history?tg_id=${State.tgId}`);
-      if (!r.ok) return [];
-      this._history = await r.json();  // [{topic, answer, ts}]
-      return this._history;
-    } catch { return []; }
+      if (r.ok) this._history = await r.json();
+    } catch (e) {
+      console.warn('loadHistory error:', e);
+    }
   },
 
+  // ── Сохранение одной записи ─────────────────────────────────
   async _saveHistoryItem(topic, answer) {
-    // Обновляем локальный кэш
+    // Обновляем кэш
     this._history = this._history.filter(
       h => h.topic.toLowerCase() !== topic.toLowerCase()
     );
     this._history.unshift({ topic, answer, ts: Date.now() });
     this._history = this._history.slice(0, this.MAX_HISTORY);
 
-    // Пишем на сервер
     if (!State.tgId) return;
     try {
       await fetch(`${this.API}/theory_history`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tg_id: State.tgId, topic, answer }),
+        body: JSON.stringify({ tg_id: State.tgId, topic, answer, ts: Date.now() }),
       });
     } catch (e) {
       console.warn('theory_history save error:', e);
     }
   },
 
-  // ── Рендер ──────────────────────────────────────────────────
-  async render() {
-    const screen = document.getElementById('screen-theory');
-    // Грузим историю при первом рендере
-    if (this._history.length === 0) await this._loadHistory();
-    this._renderScreen();
-  },
-
-  _renderScreen() {
-    const screen = document.getElementById('screen-theory');
+  // ── Рендер (синхронный) ─────────────────────────────────────────
+  render() {
+    const screen  = document.getElementById('screen-theory');
     const history = this._history;
 
     screen.innerHTML = `

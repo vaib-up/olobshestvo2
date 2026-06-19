@@ -3,38 +3,39 @@ const App = {
 
   API: 'https://olobshestvo2.online',
 
-  init() {
+  async init() {
     if (window.Telegram?.WebApp) {
       Telegram.WebApp.expand();
       Telegram.WebApp.setHeaderColor('#0f0e0c');
     }
 
-    // tgId: сначала из ?uid= (бот передаёт его явно),
+    // tgId: сначала из ?uid= (бот передаёт явно),
     // запасной — initDataUnsafe (работает только в клиенте Telegram)
     const urlUid = new URLSearchParams(window.location.search).get('uid');
     const twaUid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id ?? null;
     State.tgId = urlUid ? Number(urlUid) : twaUid;
 
-    Promise.all([
+    // Загружаем все данные параллельно, затем рендерим
+    await Promise.all([
       Mine.loadData(),
       Vseross.loadData(),
       Secret.loadData(),
-    ]).then(async () => {
-      await this.loadProgress();
-      Mine.render();
-      Theory.render();
-      Vseross.render();
-      Secret.render();
-      Progress.render();
-      UI.updateResources();
-      Mine.startIdleTick();
-    });
+      this.loadProgress(),
+      Theory.loadHistory(),   // история загружается один раз до рендера
+    ]);
+
+    Mine.render();
+    Theory.render();
+    Vseross.render();
+    Secret.render();
+    Progress.render();
+    UI.updateResources();
+    Mine.startIdleTick();
   },
 
   // ── Загрузка прогресса с сервера ────────────────────────────
   async loadProgress() {
     if (!State.tgId) {
-      // tgId нет — открыто вне бота, даём первый горизонт
       if (State.mineData.length) State.unlockedHorizons = [State.mineData[0].id];
       return;
     }
@@ -43,7 +44,6 @@ const App = {
       if (!r.ok) return;
       const d = await r.json();
       if (!d.exists) {
-        // Новый пользователь — открываем первый горизонт
         if (State.mineData.length) State.unlockedHorizons = [State.mineData[0].id];
         return;
       }
