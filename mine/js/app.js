@@ -3,7 +3,13 @@ const App = {
 
   API: 'https://olobshestvo2.online',
 
+  // Все ключи localStorage которые мы когда-либо использовали
+  _LEGACY_LS_KEYS: ['mine_progress_v1', 'theory_history'],
+
   async init() {
+    // Удаляем все старые локальные данные — единственный источник правды — сервер
+    this._LEGACY_LS_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+
     if (window.Telegram?.WebApp) {
       Telegram.WebApp.expand();
       Telegram.WebApp.setHeaderColor('#0f0e0c');
@@ -21,7 +27,7 @@ const App = {
       Vseross.loadData(),
       Secret.loadData(),
       this.loadProgress(),
-      Theory.loadHistory(),   // история загружается один раз до рендера
+      Theory.loadHistory(),
     ]);
 
     Mine.render();
