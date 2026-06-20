@@ -9,6 +9,7 @@ from db import (
     get_last_errors,
     get_mine_progress, save_mine_progress,
     get_theory_history, save_theory_history_item,
+    get_helper_history, save_helper_history_item,
 )
 
 app = FastAPI()
@@ -20,7 +21,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/mine", StaticFiles(directory="mine", html=True), name="mine")
+app.mount("/mine",    StaticFiles(directory="mine",    html=True), name="mine")
+app.mount("/miniapp", StaticFiles(directory="miniapp", html=True), name="miniapp")
 
 
 # ── Модели ───────────────────────────────────────────────────────────────────
@@ -48,11 +50,11 @@ class ProgressPayload(BaseModel):
     total_answers: int = 0
     correct_answers: int = 0
 
-class TheoryHistoryPayload(BaseModel):
+class HistoryPayload(BaseModel):
     tg_id: int
     topic: str
     answer: str
-    ts: int  # Unix timestamp в миллисекундах (Date.now())
+    ts: int
 
 
 # ── Очистка вывода LLM ───────────────────────────────────────────────────────
@@ -115,7 +117,7 @@ def store_progress(payload: ProgressPayload):
     return {"ok": True}
 
 
-# ── История теории ───────────────────────────────────────────────────────────
+# ── История Теории (Шахта) ──────────────────────────────────────────────────
 
 @app.get("/theory_history")
 def load_theory_history(tg_id: int):
@@ -123,6 +125,19 @@ def load_theory_history(tg_id: int):
 
 
 @app.post("/theory_history")
-def store_theory_history(payload: TheoryHistoryPayload):
+def store_theory_history(payload: HistoryPayload):
     save_theory_history_item(payload.tg_id, payload.topic, payload.answer, payload.ts)
+    return {"ok": True}
+
+
+# ── История Помощника ─────────────────────────────────────────────────────
+
+@app.get("/helper_history")
+def load_helper_history(tg_id: int):
+    return get_helper_history(tg_id, limit=10)
+
+
+@app.post("/helper_history")
+def store_helper_history(payload: HistoryPayload):
+    save_helper_history_item(payload.tg_id, payload.topic, payload.answer, payload.ts)
     return {"ok": True}

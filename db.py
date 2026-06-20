@@ -60,6 +60,7 @@ def init_db():
         )
         """
     )
+    # История запросов в Теории (Шахта знаний)
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS theory_history (
@@ -72,9 +73,24 @@ def init_db():
         )
         """
     )
-    # Индекс для быстрой выборки последних записей пользователя
     cur.execute(
         "CREATE INDEX IF NOT EXISTS idx_theory_history_user ON theory_history(user_id, ts DESC)"
+    )
+    # История запросов в Помощнике (отдельная таблица)
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS helper_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            topic TEXT NOT NULL,
+            answer TEXT NOT NULL,
+            ts INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_helper_history_user ON helper_history(user_id, ts DESC)"
     )
     conn.commit()
     conn.close()
@@ -100,12 +116,8 @@ def get_user_stats(user_id: int):
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT
-            COUNT(*) as tests_count,
-            SUM(score) as sum_score,
-            SUM(total) as sum_total
-        FROM first_attempts
-        WHERE user_id = ?
+        SELECT COUNT(*) as tests_count, SUM(score) as sum_score, SUM(total) as sum_total
+        FROM first_attempts WHERE user_id = ?
         """,
         (user_id,),
     )
@@ -113,9 +125,7 @@ def get_user_stats(user_id: int):
     cur.execute(
         """
         SELECT test_id, score, total, finished_at
-        FROM first_attempts
-        WHERE user_id = ?
-        ORDER BY finished_at
+        FROM first_attempts WHERE user_id = ? ORDER BY finished_at
         """,
         (user_id,),
     )
@@ -146,10 +156,7 @@ def get_last_errors(user_id: int, limit: int = 10):
     cur.execute(
         """
         SELECT question_text, correct_answer, user_answer, topic, made_at
-        FROM user_errors
-        WHERE user_id = ?
-        ORDER BY made_at DESC
-        LIMIT ?
+        FROM user_errors WHERE user_id = ? ORDER BY made_at DESC LIMIT ?
         """,
         (user_id, limit),
     )
@@ -158,7 +165,7 @@ def get_last_errors(user_id: int, limit: int = 10):
     return rows
 
 
-# ── Mine progress ────────────────────────────────────────────────────────────
+# ── Mine progress ───────────────────────────────────────────────────────────
 
 def get_mine_progress(user_id: int) -> dict | None:
     conn = get_conn()
@@ -211,36 +218,27 @@ def save_mine_progress(user_id: int, data: dict):
         """,
         (
             user_id,
-            data.get("gold", 0),
-            data.get("gems", 0),
-            data.get("idle_accum", 0),
+            data.get("gold", 0), data.get("gems", 0), data.get("idle_accum", 0),
             json.dumps(data.get("unlocked_horizons", []), ensure_ascii=False),
-            json.dumps(data.get("completed_tasks", []), ensure_ascii=False),
-            json.dumps(data.get("unlocked_vseross", []), ensure_ascii=False),
+            json.dumps(data.get("completed_tasks",   []), ensure_ascii=False),
+            json.dumps(data.get("unlocked_vseross",  []), ensure_ascii=False),
             json.dumps(data.get("completed_vseross", []), ensure_ascii=False),
-            json.dumps(data.get("unlocked_secret", []), ensure_ascii=False),
-            json.dumps(data.get("completed_secret", []), ensure_ascii=False),
-            data.get("total_answers", 0),
-            data.get("correct_answers", 0),
+            json.dumps(data.get("unlocked_secret",   []), ensure_ascii=False),
+            json.dumps(data.get("completed_secret",  []), ensure_ascii=False),
+            data.get("total_answers", 0), data.get("correct_answers", 0),
         ),
     )
     conn.commit()
     conn.close()
 
 
-# ── Theory history ───────────────────────────────────────────────────────────
+# ── Вспомогательная функция — работает для обеих таблиц ──────────────────
 
-def get_theory_history(user_id: int, limit: int = 10) -> list[dict]:
+def _get_history(table: str, user_id: int, limit: int = 10) -> list[dict]:
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
-        """
-        SELECT topic, answer, ts
-        FROM theory_history
-        WHERE user_id = ?
-        ORDER BY ts DESC
-        LIMIT ?
-        """,
+        f"SELECT topic, answer, ts FROM {table} WHERE user_id = ? ORDER BY ts DESC LIMIT ?",
         (user_id, limit),
     )
     rows = cur.fetchall()
@@ -248,31 +246,45 @@ def get_theory_history(user_id: int, limit: int = 10) -> list[dict]:
     return [{"topic": r[0], "answer": r[1], "ts": r[2]} for r in rows]
 
 
-def save_theory_history_item(user_id: int, topic: str, answer: str, ts: int):
+def _save_history_item(table: str, user_id: int, topic: str, answer: str, ts: int):
     conn = get_conn()
     cur = conn.cursor()
-    # Удаляем предыдущую запись с тем же topic у этого пользователя (дедупликация)
     cur.execute(
-        "DELETE FROM theory_history WHERE user_id = ? AND lower(topic) = lower(?)",
+        f"DELETE FROM {table} WHERE user_id = ? AND lower(topic) = lower(?)",
         (user_id, topic),
     )
-    # Вставляем новую
     cur.execute(
-        "INSERT INTO theory_history (user_id, topic, answer, ts) VALUES (?, ?, ?, ?)",
+        f"INSERT INTO {table} (user_id, topic, answer, ts) VALUES (?, ?, ?, ?)",
         (user_id, topic, answer, ts),
     )
-    # Оставляем только последние 10 записей пользователя
     cur.execute(
-        """
-        DELETE FROM theory_history
+        f"""
+        DELETE FROM {table}
         WHERE user_id = ? AND id NOT IN (
-            SELECT id FROM theory_history
-            WHERE user_id = ?
-            ORDER BY ts DESC
-            LIMIT 10
+            SELECT id FROM {table} WHERE user_id = ? ORDER BY ts DESC LIMIT 10
         )
         """,
         (user_id, user_id),
     )
     conn.commit()
     conn.close()
+
+
+# ── Theory history (Шахта) ─────────────────────────────────────────────
+
+def get_theory_history(user_id: int, limit: int = 10) -> list[dict]:
+    return _get_history("theory_history", user_id, limit)
+
+
+def save_theory_history_item(user_id: int, topic: str, answer: str, ts: int):
+    _save_history_item("theory_history", user_id, topic, answer, ts)
+
+
+# ── Helper history (Помощник) ───────────────────────────────────────────
+
+def get_helper_history(user_id: int, limit: int = 10) -> list[dict]:
+    return _get_history("helper_history", user_id, limit)
+
+
+def save_helper_history_item(user_id: int, topic: str, answer: str, ts: int):
+    _save_history_item("helper_history", user_id, topic, answer, ts)

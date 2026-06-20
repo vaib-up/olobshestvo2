@@ -80,7 +80,6 @@
   .loader { text-align: center; color: var(--text-muted); font-size: 14px; margin-top: 16px; display: none; }
   .loader.visible { display: block; }
 
-  /* История запросов */
   .history-section { margin-top: 24px; }
   .history-label {
     font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
@@ -109,7 +108,6 @@
     padding-top: 12px;
   }
 
-  /* Ошибки */
   .error-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 14px; margin-bottom: 10px;
@@ -160,7 +158,6 @@
   <div class="loader" id="theory-loader">⏳ Ищу в учебниках...</div>
   <div class="answer-box" id="theory-answer"></div>
 
-  <!-- История запросов -->
   <div class="history-section" id="history-section" style="display:none">
     <div class="history-label">История запросов</div>
     <div id="history-list"></div>
@@ -177,18 +174,19 @@ const tg = window.Telegram.WebApp;
 tg.ready();
 tg.expand();
 
-const _urlUid = new URLSearchParams(window.location.search).get('uid');
-const USER_ID = tg.initDataUnsafe?.user?.id || (_urlUid ? parseInt(_urlUid) : null);
+const _urlUid  = new URLSearchParams(window.location.search).get('uid');
+const USER_ID  = tg.initDataUnsafe?.user?.id || (_urlUid ? parseInt(_urlUid) : null);
 const API_BASE = 'https://olobshestvo2.online';
 const MAX_HISTORY = 10;
 
-let _history = [];  // in-memory кэш
+let _history = [];
 
-// ── Загрузка истории ──────────────────────────────────────────
+// ── История: загрузка / сохранение — эндпоинт /helper_history ───────
+
 async function loadHistory() {
   if (!USER_ID) return;
   try {
-    const r = await fetch(`${API_BASE}/theory_history?tg_id=${USER_ID}`);
+    const r = await fetch(`${API_BASE}/helper_history?tg_id=${USER_ID}`);
     if (r.ok) _history = await r.json();
   } catch (_) {}
   renderHistory();
@@ -201,7 +199,7 @@ async function saveHistoryItem(topic, answer) {
   renderHistory();
   if (!USER_ID) return;
   try {
-    await fetch(`${API_BASE}/theory_history`, {
+    await fetch(`${API_BASE}/helper_history`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tg_id: USER_ID, topic, answer, ts: Date.now() }),
@@ -209,7 +207,8 @@ async function saveHistoryItem(topic, answer) {
   } catch (_) {}
 }
 
-// ── Рендер истории ────────────────────────────────────────────
+// ── Рендер истории ───────────────────────────────────────────────
+
 function renderHistory() {
   const section = document.getElementById('history-section');
   const list    = document.getElementById('history-list');
@@ -240,7 +239,8 @@ function toggleHistoryCard(i) {
   if (chev) chev.style.transform = open ? '' : 'rotate(90deg)';
 }
 
-// ── Теория ────────────────────────────────────────────────────
+// ── Теория ─────────────────────────────────────────────────────
+
 async function askTheory() {
   const topic   = document.getElementById('theory-topic').value.trim();
   const section = document.getElementById('theory-section').value;
@@ -248,7 +248,7 @@ async function askTheory() {
 
   setLoading('theory', true);
   try {
-    const res = await fetch(`${API_BASE}/theory`, {
+    const res  = await fetch(`${API_BASE}/theory`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ topic, section: section || null }),
@@ -264,7 +264,8 @@ async function askTheory() {
   }
 }
 
-// ── Ошибки пользователя ───────────────────────────────────────
+// ── Ошибки ─────────────────────────────────────────────────────
+
 async function loadErrors() {
   if (!USER_ID) {
     document.getElementById('errors-list').innerHTML =
@@ -332,7 +333,8 @@ async function explainError(idx, btn) {
   }
 }
 
-// ── Переключение вкладок ──────────────────────────────────────
+// ── Навигация ────────────────────────────────────────────────────
+
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach((b, i) => {
     b.classList.toggle('active', ['theory', 'errors'][i] === name);
@@ -343,7 +345,8 @@ function switchTab(name) {
   if (name === 'errors') loadErrors();
 }
 
-// ── Утилиты ───────────────────────────────────────────────────
+// ── Утилиты ─────────────────────────────────────────────────────
+
 function setLoading(scope, state) {
   document.getElementById(`${scope}-loader`).classList.toggle('visible', state);
   document.getElementById(`${scope}-btn`).disabled = state;
@@ -354,7 +357,8 @@ function showAnswer(id, text) {
   box.classList.add('visible');
 }
 
-// ── Старт ─────────────────────────────────────────────────────
+// ── Старт ────────────────────────────────────────────────────────
+
 loadHistory();
 </script>
 </body>
