@@ -16,9 +16,6 @@ const App = {
     const twaUid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id ?? null;
     State.tgId   = urlUid ? Number(urlUid) : twaUid;
 
-    // Для отладки: запомним источник tgId до загрузки
-    const tgIdSource = urlUid ? 'url' : (twaUid ? 'twa' : 'null');
-
     await Promise.all([
       Mine.loadData(),
       Vseross.loadData(),
@@ -26,13 +23,6 @@ const App = {
       this.loadProgress(),
       Theory.loadHistory(),
     ]);
-
-    // Дебаг-тост: что загрузили и откуда tgId
-    setTimeout(() => {
-      const goldGems = `⚡${State.gold} 💎${State.gems}`;
-      const tasks    = `tasks:${State.completedTasks.size}`;
-      UI.toast(`id:${State.tgId}(${tgIdSource}) ${goldGems} ${tasks}`, 'gold');
-    }, 600);
 
     Mine.render();
     Theory.render();
