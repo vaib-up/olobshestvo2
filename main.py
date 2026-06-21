@@ -48,7 +48,7 @@ def get_main_keyboard(user_id: int = None):
                 web_app=WebAppInfo(url=assistant_url)
             )],
             [KeyboardButton(
-                text="📋 Перечни",
+                text="⛏️ Шахта Знаний",
                 web_app=WebAppInfo(url=mine_url)
             )],
         ],
