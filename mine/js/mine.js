@@ -1,13 +1,23 @@
-// Шахта: загрузка данных, рендер, idle, квиз
+// Шахта: загрузка данных, навигация (издание → класс → горизонты), idle, квиз
 const Mine = {
+
+  // Текущий выбор навигации
+  _nav: { view: 'editions', editionId: null, gradeId: null },
 
   async loadData() {
     try {
       const res = await fetch('data/mine_data.json');
       const data = await res.json();
-      State.mineData = data.horizons;
-      // Первый горизонт бесплатно — только если это новый пользователь
-      // (сервер ещё не ответил / tg_id не было)
+      State.mineEditions = data.editions;
+      // Собираем плоский список горизонтов для совместимости с прогрессом
+      State.mineData = [];
+      for (const ed of data.editions) {
+        for (const gr of ed.grades) {
+          for (const h of gr.horizons) {
+            State.mineData.push(h);
+          }
+        }
+      }
       if (State.mineData.length
           && !State.unlockedHorizons.length
           && State.completedTasks.size === 0
@@ -16,6 +26,7 @@ const Mine = {
       }
     } catch (e) {
       console.error('Не удалось загрузить mine_data.json', e);
+      State.mineEditions = [];
       State.mineData = [];
     }
   },
@@ -25,6 +36,7 @@ const Mine = {
     screen.classList.add('shaft-screen');
     screen.innerHTML = '';
 
+    // Idle-тикер всегда сверху
     const ticker = document.createElement('div');
     ticker.className = 'idle-ticker';
     ticker.innerHTML = `
@@ -39,11 +51,135 @@ const Mine = {
       <button class="collect-btn" id="collect-btn" onclick="Mine.collect()">Собрать</button>`;
     screen.appendChild(ticker);
 
-    State.mineData.forEach((h, i) => {
+    const { view, editionId, gradeId } = this._nav;
+
+    if (view === 'editions') {
+      this._renderEditions(screen);
+    } else if (view === 'grades') {
+      this._renderGrades(screen, editionId);
+    } else if (view === 'horizons') {
+      this._renderHorizons(screen, editionId, gradeId);
+    }
+  },
+
+  // ── Экран 1: список изданий (ПВГ25, ПВГ24...) ────────────────────
+  _renderEditions(screen) {
+    const wrap = document.createElement('div');
+    wrap.className = 'mine-nav-list';
+
+    (State.mineEditions || []).forEach(ed => {
+      const card = document.createElement('div');
+      card.className = 'mine-nav-card';
+      card.style.setProperty('--card-color', ed.color || '#4a9ebb');
+
+      // Считаем общий прогресс по изданию
+      let total = 0, done = 0;
+      for (const gr of ed.grades) {
+        for (const h of gr.horizons) {
+          total += h.tasks.length;
+          done  += h.tasks.filter(t => State.completedTasks.has(t.id)).length;
+        }
+      }
+      const pct = total ? Math.round(done / total * 100) : 0;
+
+      card.innerHTML = `
+        <div class="mnc-icon">${ed.icon}</div>
+        <div class="mnc-body">
+          <div class="mnc-name">${ed.name}</div>
+          <div class="mnc-meta">${done}/${total} вопросов · ${pct}%</div>
+          <div class="mnc-bar"><div class="mnc-bar-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div class="mnc-arrow">›</div>`;
+
+      card.onclick = () => {
+        this._nav = { view: 'grades', editionId: ed.id, gradeId: null };
+        this.render();
+      };
+      wrap.appendChild(card);
+    });
+
+    screen.appendChild(wrap);
+  },
+
+  // ── Экран 2: выбор класса (11, 10, 9) ────────────────────────────
+  _renderGrades(screen, editionId) {
+    const ed = (State.mineEditions || []).find(e => e.id === editionId);
+    if (!ed) return;
+
+    // Кнопка «Назад»
+    screen.appendChild(this._backBtn(() => {
+      this._nav = { view: 'editions', editionId: null, gradeId: null };
+      this.render();
+    }, ed.name));
+
+    const wrap = document.createElement('div');
+    wrap.className = 'mine-nav-list';
+
+    ed.grades.forEach(gr => {
+      const card = document.createElement('div');
+      card.className = 'mine-nav-card';
+      card.style.setProperty('--card-color', ed.color || '#4a9ebb');
+
+      let total = 0, done = 0;
+      for (const h of gr.horizons) {
+        total += h.tasks.length;
+        done  += h.tasks.filter(t => State.completedTasks.has(t.id)).length;
+      }
+      const pct   = total ? Math.round(done / total * 100) : 0;
+      const empty = gr.horizons.length === 0;
+
+      card.innerHTML = `
+        <div class="mnc-icon">${gr.icon}</div>
+        <div class="mnc-body">
+          <div class="mnc-name">${gr.label}</div>
+          <div class="mnc-meta">${empty ? 'Скоро...' : `${done}/${total} вопросов · ${pct}%`}</div>
+          ${!empty ? `<div class="mnc-bar"><div class="mnc-bar-fill" style="width:${pct}%"></div></div>` : ''}
+        </div>
+        ${!empty ? '<div class="mnc-arrow">›</div>' : '<div class="mnc-arrow" style="opacity:.3">›</div>'}`;
+
+      if (!empty) {
+        card.onclick = () => {
+          this._nav = { view: 'horizons', editionId, gradeId: gr.id };
+          this.render();
+        };
+      } else {
+        card.style.opacity = '0.55';
+        card.style.cursor = 'default';
+      }
+
+      wrap.appendChild(card);
+    });
+
+    screen.appendChild(wrap);
+  },
+
+  // ── Экран 3: список горизонтов (вопросов) ─────────────────────────
+  _renderHorizons(screen, editionId, gradeId) {
+    const ed = (State.mineEditions || []).find(e => e.id === editionId);
+    const gr = ed?.grades.find(g => g.id === gradeId);
+    if (!gr) return;
+
+    // Кнопка «Назад»
+    screen.appendChild(this._backBtn(() => {
+      this._nav = { view: 'grades', editionId, gradeId: null };
+      this.render();
+    }, `${ed.name} · ${gr.label}`));
+
+    gr.horizons.forEach((h, i) => {
       screen.appendChild(this._buildFloor(h, i));
     });
   },
 
+  // ── Кнопка «Назад» ───────────────────────────────────────────────
+  _backBtn(onBack, subtitle) {
+    const div = document.createElement('div');
+    div.className = 'mine-breadcrumb';
+    div.innerHTML = `<button class="mine-back-btn" >‹ Назад</button><span class="mine-bc-sub">${subtitle}</span>`;
+    div.querySelector('.mine-back-btn').onclick = onBack;
+    return div;
+  },
+
+  // ── Горизонт (карточка вопроса) — без изменений ─────────────────
   _buildFloor(h, idx) {
     const unlocked  = State.unlockedHorizons.includes(h.id);
     const cost      = h.unlockCost ?? 4;
@@ -82,7 +218,6 @@ const Mine = {
         <div class="floor-num">${idx + 1}</div>
         <div class="floor-icon">${h.icon}</div>
       </div>
-
       <div class="floor-body">
         <div class="floor-name">${h.name}</div>
         <div class="floor-meta">
@@ -93,7 +228,6 @@ const Mine = {
           <div class="floor-progress-fill" style="width:${pct}%"></div>
         </div>
       </div>
-
       <div class="floor-btn-wrap">
         <button class="${btnCls}" onclick="Mine.handleBtn('${h.id}')">${btnTxt}</button>
       </div>`;
@@ -116,7 +250,7 @@ const Mine = {
       UI.updateResources();
       UI.particle(`🔓 ${h.name}`, h.color);
       UI.toast(`Открыт: ${h.name}!`, 'green');
-      App.renderAll(); // сохраняет внутри
+      App.renderAll();
       return;
     }
 
@@ -213,7 +347,7 @@ const Mine = {
       }
     }
     Modal.close();
-    App.renderAll(); // сохраняет внутри
+    App.renderAll();
   },
 
   _idleRate() {
@@ -235,7 +369,6 @@ const Mine = {
         State.idleAccum += r / 60;
         UI.updateResources();
       }
-      // Сохраняем idleAccum каждые 30 секунд
       saveTick++;
       if (saveTick >= 30) {
         saveTick = 0;
@@ -252,6 +385,6 @@ const Mine = {
     UI.updateResources();
     UI.particle(`+${n} ⚡`, '#c89b4a');
     UI.toast(`Собрано ${n} ⚡`, 'gold');
-    App.saveProgress(); // сохраняем сразу после сбора
+    App.saveProgress();
   },
 };
