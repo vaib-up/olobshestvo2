@@ -31,6 +31,16 @@ TESTS = load_tests()
 # {user_id: {"test_id": str, "type": str, "current": int, "score": int, "total": int}}
 user_progress = {}
 
+# ========== ТЕКСТЫ ТЕМ ПО РАЗДЕЛАМ ==========
+
+SECTION_TOPICS = {
+    "econ": "Здесь будут темы по экономике.",
+    "pol":  "Здесь будут темы по политологии.",
+    "law":  "Здесь будут темы по праву.",
+    "phil": "Здесь будут темы по философии.",
+    "soc":  "Здесь будут темы по социологии.",
+}
+
 # ========== КЛАВИАТУРЫ ==========
 
 def get_main_keyboard(user_id: int = None):
@@ -77,6 +87,7 @@ def get_subsection_keyboard(section_code: str):
             [InlineKeyboardButton(text="📝Выпуск №2", callback_data=f"{section_code}_test2")],
             [InlineKeyboardButton(text="📝Выпуск №3", callback_data=f"{section_code}_test3")],
             [InlineKeyboardButton(text="📝Выпуск №4", callback_data=f"{section_code}_test4")],
+            [InlineKeyboardButton(text="📋 Темы всех выпусков", callback_data=f"topics_{section_code}")],
             [InlineKeyboardButton(text="↩️ К разделам", callback_data="back_sections")],
         ]
     )
@@ -336,6 +347,20 @@ async def any_test_selected(callback: CallbackQuery):
         reply_markup=get_question_type_keyboard(test_id),
         parse_mode="HTML",
     )
+    await callback.answer()
+
+# ========== ТЕМЫ ВСЕХ ВЫПУСКОВ ==========
+
+@dp.callback_query(F.data.startswith("topics_"))
+async def topics_handler(callback: CallbackQuery):
+    section_code = callback.data.removeprefix("topics_")
+    text = SECTION_TOPICS.get(section_code, "Темы пока не добавлены.")
+    back_kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="↩️ К выпускам", callback_data=f"back_issues|{section_code}")]
+        ]
+    )
+    await callback.message.answer(text, reply_markup=back_kb)
     await callback.answer()
 
 # ========== ЗАПУСК КОНКРЕТНОГО ТИПА ==========
