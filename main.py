@@ -105,11 +105,11 @@ def get_sections_keyboard():
 def get_subsection_keyboard(section_code: str):
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text="📋 Темы всех выпусков", callback_data=f"topics_{section_code}")],
             [InlineKeyboardButton(text="📝Выпуск №1", callback_data=f"{section_code}_test1")],
             [InlineKeyboardButton(text="📝Выпуск №2", callback_data=f"{section_code}_test2")],
             [InlineKeyboardButton(text="📝Выпуск №3", callback_data=f"{section_code}_test3")],
             [InlineKeyboardButton(text="📝Выпуск №4", callback_data=f"{section_code}_test4")],
-            [InlineKeyboardButton(text="📋 Темы всех выпусков", callback_data=f"topics_{section_code}")],
             [InlineKeyboardButton(text="↩️ К разделам", callback_data="back_sections")],
         ]
     )
