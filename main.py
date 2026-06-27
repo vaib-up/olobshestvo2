@@ -35,23 +35,23 @@ user_progress = {}
 
 SECTION_TOPICS = {
     "law": (
-        "<i>Право темы выпусков:</i>\n\n"
+        "Право темы выпусков:\n\n"
         "https://telegra.ph/Temy-testovzadach-po-pravu-06-27"
     ),
     "econ": (
-        "<i>Экономика темы выпусков:</i>\n\n"
+        "Экономика темы выпусков:\n\n"
         "https://telegra.ph/Temy-testovzadach-po-ehkonomike-06-27"
     ),
     "pol":(
-        "<i>Политология темы выпусков:</i>\n\n"
+        "Политология темы выпусков:\n\n"
         "https://telegra.ph/Temy-testovzadach-po-politologii-06-27"
     ),
     "phil": (
-        "<i>Философия темы выпусков:</i>\n\n"
+        "Философия темы выпусков:\n\n"
         "https://telegra.ph/Temy-testovzadach-po-filosofii-06-27"
     ),
     "soc":   (
-        "<i>Социология темы выпусков:</i>\n\n"
+        "Социология темы выпусков:\n\n"
         "https://telegra.ph/Temy-testovzadach-po-sociologii-06-27"
     ),
 }
