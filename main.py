@@ -164,6 +164,14 @@ def get_stats_back_keyboard():
         ]
     )
 
+def get_close_keyboard(test_id: str):
+    """Клавиатура с кнопкой закрытия результата блока."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Закрыть", callback_data=f"close_result|{test_id}")]
+        ]
+    )
+
 # ========== ОБРАБОТЧИКИ СООБЩЕНИЙ ==========
 
 @dp.message(CommandStart())
@@ -480,8 +488,7 @@ async def answer_handler(callback: CallbackQuery):
         else:
             await callback.message.answer(next_q)
     else:
-        kb = get_back_to_types_keyboard(test_id)
-
+        # ── Последний ответ: сразу сохраняем награду ──
         if q_type in ("да_нет", "тест"):
             block_id = f"{test_id}|{q_type}"
             save_first_attempt(
@@ -491,15 +498,11 @@ async def answer_handler(callback: CallbackQuery):
                 total=progress["total"],
             )
 
-        await callback.message.answer(
-            f"Блок завершён!\n\nВаш результат: {progress['score']} из {progress['total']}.",
-            reply_markup=kb,
-        )
-
         wrong = progress.get("wrong", [])
+        close_kb = get_close_keyboard(test_id)
+
         if wrong:
-            questions = TESTS[test_id][q_type]
-            lines = ["Ошибки в этом прохождении:"]
+            lines = [f"Блок завершён! Результат: {progress['score']} из {progress['total']}.\n\nОшибки:"]
             for bad_q_num, bad_user_ans, bad_correct_ans in wrong:
                 q_text = questions[bad_q_num]["question"]
                 user_ans_display = str(bad_user_ans).upper()
@@ -509,10 +512,25 @@ async def answer_handler(callback: CallbackQuery):
                     f"\nВаш ответ: {user_ans_display}"
                     f"\nПравильный ответ: {correct_ans_display}"
                 )
-            await callback.message.answer("\n".join(lines))
+            await callback.message.answer("\n".join(lines), reply_markup=close_kb)
+        else:
+            await callback.message.answer(
+                f"Блок завершён! Результат: {progress['score']} из {progress['total']}. Все верно! 🎉",
+                reply_markup=close_kb,
+            )
 
         del user_progress[user_id]
 
+    await callback.answer()
+
+
+# ========== ЗАКРЫТИЕ РЕЗУЛЬТАТА ==========
+
+@dp.callback_query(F.data.startswith("close_result|"))
+async def close_result_handler(callback: CallbackQuery):
+    _, test_id = callback.data.split("|", maxsplit=1)
+    # Удаляем сообщение с результатом
+    await callback.message.delete()
     await callback.answer()
 
 
