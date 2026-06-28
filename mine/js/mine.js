@@ -4,6 +4,9 @@ const Mine = {
   // Текущий выбор навигации
   _nav: { view: 'editions', editionId: null, gradeId: null },
 
+  // Метка времени последнего сбора (мс)
+  _lastCollectTime: null,
+
   async loadData() {
     try {
       const res = await fetch('data/mine_data.json');
@@ -395,21 +398,51 @@ const Mine = {
     return r;
   },
 
+  // Возвращает накопленное за время с последнего сбора (в целых единицах)
+  _pendingGold() {
+    if (!this._lastCollectTime) return 0;
+    const rate = this._idleRate();
+    if (rate === 0) return 0;
+    const elapsedMin = (Date.now() - this._lastCollectTime) / 60_000;
+    return Math.floor(rate * elapsedMin);
+  },
+
   startIdleTick() {
+    // Инициализируем метку времени при старте
+    this._lastCollectTime = Date.now();
+
+    // Каждую секунду обновляем UI с реальным накопленным количеством
     setInterval(() => {
-      const rate = this._idleRate();
-      const el   = document.getElementById('idle-rate');
-      if (el) el.textContent = `+${rate} ⚡/мин`;
+      const rate    = this._idleRate();
+      const pending = this._pendingGold();
+
+      const elRate = document.getElementById('idle-rate');
+      if (elRate) elRate.textContent = `+${rate} ⚡/мин`;
+
       const btn = document.getElementById('collect-btn');
-      if (btn) btn.textContent = rate > 0 ? `Собрать (+${rate})` : 'Собрать';
-    }, 60_000);
+      if (btn) {
+        btn.textContent = pending > 0 ? `Собрать (${pending})` : 'Собрать';
+      }
+    }, 1_000);
   },
 
   collect() {
-    const rate = this._idleRate();
-    if (rate === 0) { UI.toast('Нечего собирать — открой горизонты!', 'gold'); return; }
-    State.gold += rate;
+    const pending = this._pendingGold();
+    if (pending === 0) {
+      const rate = this._idleRate();
+      if (rate === 0) {
+        UI.toast('Нечего собирать — открой горизонты!', 'gold');
+      } else {
+        UI.toast('Подожди немного — накапливается...', 'gold');
+      }
+      return;
+    }
+    State.gold += pending;
+    this._lastCollectTime = Date.now(); // сброс таймера после сбора
     UI.updateResources();
-    UI.particle(`+${rate} ⚡`, '#c89b4a');
+    UI.particle(`+${pending} ⚡`, '#c89b4a');
+    // Обновляем кнопку сразу
+    const btn = document.getElementById('collect-btn');
+    if (btn) btn.textContent = 'Собрать';
   },
 };
