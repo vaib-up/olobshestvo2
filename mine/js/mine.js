@@ -286,18 +286,7 @@ const Mine = {
       </div>`;
 
     if (this._quizState.qi >= task.questions.length) {
-      const ok = this._quizState.correct === task.questions.length;
-      mc.innerHTML = headerHTML + `
-        <div class="quiz-feedback show ${ok ? 'ok' : 'fail'}">
-          ${ok
-            ? `🎉 Задание пройдено! +${task.questions.length * 5} ⚡`
-            : `Не все ответы верны. Попробуй ещё раз.`}
-        </div>
-        <button class="btn-primary" style="margin-top:var(--space-4)"
-          onclick="Mine.finishTask(${ok})">
-          ${ok ? '⛏ Продолжить' : 'Закрыть'}
-        </button>`;
-      return;
+      return; // Квиз окончен — модал закрывается кнопкой «Закрыть» после последнего вопроса
     }
 
     const q = task.questions[this._quizState.qi];
@@ -315,37 +304,52 @@ const Mine = {
 
   answerQuiz(chosen, correct) {
     const q = this._quizState.task.questions[this._quizState.qi];
+    const { horizon, task } = this._quizState;
     State.totalAnswers++;
     document.querySelectorAll('.quiz-option').forEach(b => b.classList.add('disabled'));
     const fb = document.getElementById('qfb');
-    if (chosen === correct) {
+    const isCorrect = chosen === correct;
+
+    if (isCorrect) {
       document.querySelectorAll('.quiz-option')[chosen].classList.add('correct');
       State.correctAnswers++;
       this._quizState.correct++;
       fb.className = 'quiz-feedback show ok';
       fb.textContent = '✓ Верно! ' + (q.explain || '');
+      // Начисляем награду сразу за правильный ответ
+      State.gold += 5;
+      UI.particle('+5 ⚡', '#c89b4a');
     } else {
       document.querySelectorAll('.quiz-option')[chosen].classList.add('wrong');
       document.querySelectorAll('.quiz-option')[correct].classList.add('correct');
       fb.className = 'quiz-feedback show fail';
       fb.textContent = '✗ Неверно. ' + (q.explain || '');
     }
-    setTimeout(() => { this._quizState.qi++; this._renderQuizStep(); }, 2200);
-  },
 
-  finishTask(success) {
-    const { horizon, task } = this._quizState;
-    State.completedTasks.add(task.id);
-    if (success) {
-      const reward = task.questions.length * 5;
-      State.gold += reward;
-      UI.particle(`+${reward} ⚡`, '#c89b4a');
+    // Переходим к следующему вопросу через 2.2с, но на последнем — кнопка «Закрыть»
+    this._quizState.qi++;
+    const isLast = this._quizState.qi >= task.questions.length;
+
+    if (isLast) {
+      // Последний вопрос — засчитываем задание и показываем кнопку «Закрыть»
+      State.completedTasks.add(task.id);
       if (horizon.tasks.every(t => State.completedTasks.has(t.id))) {
         State.gems += 1;
         UI.particle('💎 +1', '#4a9ebb');
         setTimeout(() => UI.toast(`"${horizon.name}" пройден! +1 💎`, 'green'), 400);
       }
+      const btn = document.createElement('button');
+      btn.className = 'btn-primary';
+      btn.style.marginTop = 'var(--space-4)';
+      btn.textContent = 'Закрыть';
+      btn.onclick = () => { Modal.close(); App.renderAll(); };
+      fb.parentNode.appendChild(btn);
+    } else {
+      setTimeout(() => { this._renderQuizStep(); }, 2200);
     }
+  },
+
+  finishTask(_unused) {
     Modal.close();
     App.renderAll();
   },
@@ -360,31 +364,20 @@ const Mine = {
   },
 
   startIdleTick() {
-    let saveTick = 0;
     setInterval(() => {
-      const r = this._idleRate();
-      const el = document.getElementById('idle-rate');
-      if (el) el.textContent = `+${r} ⚡/мин`;
-      if (r > 0) {
-        State.idleAccum += r / 60;
-        UI.updateResources();
-      }
-      saveTick++;
-      if (saveTick >= 30) {
-        saveTick = 0;
-        App.saveProgress();
-      }
-    }, 1000);
+      const rate = this._idleRate();
+      const el   = document.getElementById('idle-rate');
+      if (el) el.textContent = `+${rate} ⚡/мин`;
+      const btn = document.getElementById('collect-btn');
+      if (btn) btn.textContent = rate > 0 ? `Собрать (+${rate})` : 'Собрать';
+    }, 60_000);
   },
 
   collect() {
-    const n = Math.floor(State.idleAccum);
-    if (n <= 0) { UI.toast('Проходи задания в шахте', 'gold'); return; }
-    State.gold += n;
-    State.idleAccum = 0;
+    const rate = this._idleRate();
+    if (rate === 0) { UI.toast('Нечего собирать — открой горизонты!', 'gold'); return; }
+    State.gold += rate;
     UI.updateResources();
-    UI.particle(`+${n} ⚡`, '#c89b4a');
-    UI.toast(`Собрано ${n} ⚡`, 'gold');
-    App.saveProgress();
+    UI.particle(`+${rate} ⚡`, '#c89b4a');
   },
 };
