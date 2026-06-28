@@ -62,7 +62,7 @@ const Mine = {
     }
   },
 
-  // ── Экран 1: список изданий (ПВГ25, ПВГ24...) ────────────────────
+  // ── Экран 1: список изданий (ПВГ25, ПВГ24...) ────────────────────────────────────────
   _renderEditions(screen) {
     const wrap = document.createElement('div');
     wrap.className = 'mine-nav-list';
@@ -101,7 +101,7 @@ const Mine = {
     screen.appendChild(wrap);
   },
 
-  // ── Экран 2: выбор класса (11, 10, 9) ────────────────────────────
+  // ── Экран 2: выбор класса (11, 10, 9) ────────────────────────────────────────────────
   _renderGrades(screen, editionId) {
     const ed = (State.mineEditions || []).find(e => e.id === editionId);
     if (!ed) return;
@@ -153,7 +153,7 @@ const Mine = {
     screen.appendChild(wrap);
   },
 
-  // ── Экран 3: список горизонтов (вопросов) ─────────────────────────
+  // ── Экран 3: список горизонтов (вопросов) ─────────────────────────────────────────────
   _renderHorizons(screen, editionId, gradeId) {
     const ed = (State.mineEditions || []).find(e => e.id === editionId);
     const gr = ed?.grades.find(g => g.id === gradeId);
@@ -170,7 +170,7 @@ const Mine = {
     });
   },
 
-  // ── Кнопка «Назад» ───────────────────────────────────────────────
+  // ── Кнопка «Назад» ───────────────────────────────────────────────────────────────────
   _backBtn(onBack, subtitle) {
     const div = document.createElement('div');
     div.className = 'mine-breadcrumb';
@@ -179,7 +179,7 @@ const Mine = {
     return div;
   },
 
-  // ── Горизонт (карточка вопроса) — без изменений ─────────────────
+  // ── Горизонт (карточка вопроса) ─────────────────────────────────────────────────────
   _buildFloor(h, idx) {
     const unlocked  = State.unlockedHorizons.includes(h.id);
     const cost      = h.unlockCost ?? 4;
@@ -193,7 +193,7 @@ const Mine = {
     let btnCls, btnTxt;
     if (unlocked && allDone) {
       btnCls = 'btn-dig done';
-      btnTxt = '✓ Готово';
+      btnTxt = '🔁 Повторить';
     } else if (unlocked) {
       btnCls = 'btn-dig';
       btnTxt = '⛏ Копать';
@@ -254,19 +254,43 @@ const Mine = {
       return;
     }
 
+    const done    = h.tasks.filter(t => State.completedTasks.has(t.id)).length;
+    const allDone = done === h.tasks.length && h.tasks.length > 0;
+
+    if (allDone) {
+      // Повторное прохождение: открываем все задачи подряд без награды
+      this._replayQueue = [...h.tasks];
+      this._replayHorizon = h;
+      this._startNextReplay();
+      return;
+    }
+
     const task = h.tasks.find(t => !State.completedTasks.has(t.id));
     if (task) this.openTask(h, task);
     else UI.toast('Горизонт пройден! 🎉', 'green');
+  },
+
+  _replayQueue: [],
+  _replayHorizon: null,
+
+  _startNextReplay() {
+    if (!this._replayQueue.length) {
+      UI.toast('Повторение завершено! 🎉', 'green');
+      App.renderAll();
+      return;
+    }
+    const task = this._replayQueue.shift();
+    Modal.open(() => this._renderTaskModal(this._replayHorizon, task, true));
   },
 
   openTask(horizon, task) {
     Modal.open(() => this._renderTaskModal(horizon, task));
   },
 
-  _quizState: { qi: 0, correct: 0, horizon: null, task: null },
+  _quizState: { qi: 0, correct: 0, horizon: null, task: null, replay: false },
 
-  _renderTaskModal(horizon, task) {
-    this._quizState = { qi: 0, correct: 0, horizon, task };
+  _renderTaskModal(horizon, task, replay = false) {
+    this._quizState = { qi: 0, correct: 0, horizon, task, replay };
     this._renderQuizStep();
   },
 
@@ -304,7 +328,7 @@ const Mine = {
 
   answerQuiz(chosen, correct) {
     const q = this._quizState.task.questions[this._quizState.qi];
-    const { horizon, task } = this._quizState;
+    const { horizon, task, replay } = this._quizState;
     State.totalAnswers++;
     document.querySelectorAll('.quiz-option').forEach(b => b.classList.add('disabled'));
     const fb = document.getElementById('qfb');
@@ -316,9 +340,11 @@ const Mine = {
       this._quizState.correct++;
       fb.className = 'quiz-feedback show ok';
       fb.textContent = '✓ Верно! ' + (q.explain || '');
-      // Начисляем награду сразу за правильный ответ
-      State.gold += 5;
-      UI.particle('+5 ⚡', '#c89b4a');
+      // Начисляем награду только при первом прохождении
+      if (!replay) {
+        State.gold += 5;
+        UI.particle('+5 ⚡', '#c89b4a');
+      }
     } else {
       document.querySelectorAll('.quiz-option')[chosen].classList.add('wrong');
       document.querySelectorAll('.quiz-option')[correct].classList.add('correct');
@@ -326,23 +352,29 @@ const Mine = {
       fb.textContent = '✗ Неверно. ' + (q.explain || '');
     }
 
-    // Переходим к следующему вопросу через 2.2с, но на последнем — кнопка «Закрыть»
+    // Переходим к следующему вопросу через 2.2с, на последнем — кнопка
     this._quizState.qi++;
     const isLast = this._quizState.qi >= task.questions.length;
 
     if (isLast) {
-      // Последний вопрос — засчитываем задание и показываем кнопку «Закрыть»
-      State.completedTasks.add(task.id);
-      if (horizon.tasks.every(t => State.completedTasks.has(t.id))) {
-        State.gems += 1;
-        UI.particle('💎 +1', '#4a9ebb');
-        setTimeout(() => UI.toast(`"${horizon.name}" пройден! +1 💎`, 'green'), 400);
+      if (!replay) {
+        State.completedTasks.add(task.id);
+        if (horizon.tasks.every(t => State.completedTasks.has(t.id))) {
+          State.gems += 1;
+          UI.particle('💎 +1', '#4a9ebb');
+          setTimeout(() => UI.toast(`"${horizon.name}" пройден! +1 💎`, 'green'), 400);
+        }
       }
       const btn = document.createElement('button');
       btn.className = 'btn-primary';
       btn.style.marginTop = 'var(--space-4)';
-      btn.textContent = 'Закрыть';
-      btn.onclick = () => { Modal.close(); App.renderAll(); };
+      if (replay && this._replayQueue && this._replayQueue.length > 0) {
+        btn.textContent = 'Следующий вопрос ›';
+        btn.onclick = () => { Modal.close(); this._startNextReplay(); };
+      } else {
+        btn.textContent = 'Закрыть';
+        btn.onclick = () => { Modal.close(); App.renderAll(); };
+      }
       fb.parentNode.appendChild(btn);
     } else {
       setTimeout(() => { this._renderQuizStep(); }, 2200);
