@@ -31,29 +31,14 @@ TESTS = load_tests()
 # {user_id: {"test_id": str, "type": str, "current": int, "score": int, "total": int}}
 user_progress = {}
 
-# ========== ТЕКСТЫ ТЕМ ПО РАЗДЕЛАМ ==========
+# ========== ССЫЛКИ НА СТАТЬИ TELEGRAPH ==========
 
-SECTION_TOPICS = {
-    "law": (
-        "Право темы выпусков:\n\n"
-        "https://telegra.ph/Temy-testovzadach-po-pravu-06-27"
-    ),
-    "econ": (
-        "Экономика темы выпусков:\n\n"
-        "https://telegra.ph/Temy-testovzadach-po-ehkonomike-06-27"
-    ),
-    "pol":(
-        "Политология темы выпусков:\n\n"
-        "https://telegra.ph/Temy-testovzadach-po-politologii-06-27"
-    ),
-    "phil": (
-        "Философия темы выпусков:\n\n"
-        "https://telegra.ph/Temy-testovzadach-po-filosofii-06-27"
-    ),
-    "soc":   (
-        "Социология темы выпусков:\n\n"
-        "https://telegra.ph/Temy-testovzadach-po-sociologii-06-27"
-    ),
+SECTION_TOPICS_URLS = {
+    "law":  "https://telegra.ph/Temy-testovzadach-po-pravu-06-27",
+    "econ": "https://telegra.ph/Temy-testovzadach-po-ehkonomike-06-27",
+    "pol":  "https://telegra.ph/Temy-testovzadach-po-politologii-06-27",
+    "phil": "https://telegra.ph/Temy-testovzadach-po-filosofii-06-27",
+    "soc":  "https://telegra.ph/Temy-testovzadach-po-sociologii-06-27",
 }
 
 # ========== КЛАВИАТУРЫ ==========
@@ -96,9 +81,10 @@ def get_sections_keyboard():
 
 
 def get_subsection_keyboard(section_code: str):
+    topics_url = SECTION_TOPICS_URLS.get(section_code, "https://telegra.ph")
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📋 Темы всех выпусков", callback_data=f"topics_{section_code}")],
+            [InlineKeyboardButton(text="📋 Темы всех выпусков", url=topics_url)],
             [InlineKeyboardButton(text="📝Выпуск №1", callback_data=f"{section_code}_test1")],
             [InlineKeyboardButton(text="📝Выпуск №2", callback_data=f"{section_code}_test2")],
             [InlineKeyboardButton(text="📝Выпуск №3", callback_data=f"{section_code}_test3")],
@@ -365,20 +351,6 @@ async def any_test_selected(callback: CallbackQuery):
     )
     await callback.answer()
 
-# ========== ТЕМЫ ВСЕХ ВЫПУСКОВ ==========
-
-@dp.callback_query(F.data.startswith("topics_"))
-async def topics_handler(callback: CallbackQuery):
-    section_code = callback.data.removeprefix("topics_")
-    text = SECTION_TOPICS.get(section_code, "Темы пока не добавлены.")
-    back_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="↩️ К выпускам", callback_data=f"back_issues|{section_code}")]
-        ]
-    )
-    await callback.message.answer(text, reply_markup=back_kb, parse_mode="HTML")
-    await callback.answer()
-
 # ========== ЗАПУСК КОНКРЕТНОГО ТИПА ==========
 
 @dp.callback_query(F.data.startswith("type|"))
@@ -497,7 +469,6 @@ async def answer_handler(callback: CallbackQuery):
                 reply_markup=kb,
             )
 
-
         wrong = progress.get("wrong", [])
 
         if wrong:
@@ -517,7 +488,6 @@ async def answer_handler(callback: CallbackQuery):
         del user_progress[user_id]
 
     await callback.answer()
-
 
 
 # ========== СЛЕДУЮЩИЙ РАЗВЁРНУТЫЙ ==========
