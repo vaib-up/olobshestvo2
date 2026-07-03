@@ -52,7 +52,7 @@ def get_main_keyboard(user_id: int = None):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📚 Разделы")],
-            [KeyboardButton(text="🔁 Старт"), KeyboardButton(text="📈 Статистика")],
+            [KeyboardButton(text="📖 Гайд по боту", url="https://telegra.ph/bot-06-28-19"), KeyboardButton(text="📈 Статистика")],
             [KeyboardButton(
                 text="🤖 Помощник",
                 web_app=WebAppInfo(url=assistant_url)
@@ -166,14 +166,6 @@ async def sections_menu(message: Message):
     await message.answer(
         "Выберите раздел:",
         reply_markup=get_sections_keyboard(),
-    )
-
-
-@dp.message(F.text == "🔁 Старт")
-async def restart_handler(message: Message):
-    await message.answer(
-        "Вы вернулись в главное меню.",
-        reply_markup=get_main_keyboard(message.from_user.id),
     )
 
 
