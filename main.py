@@ -41,6 +41,8 @@ SECTION_TOPICS_URLS = {
     "soc":  "https://telegra.ph/Temy-testovzadach-po-sociologii-06-27",
 }
 
+GUIDE_URL = "https://telegra.ph/bot-06-28-19"
+
 # ========== КЛАВИАТУРЫ ==========
 
 def get_main_keyboard(user_id: int = None):
@@ -52,7 +54,13 @@ def get_main_keyboard(user_id: int = None):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📚 Разделы")],
-            [KeyboardButton(text="📖 Гайд по боту"), KeyboardButton(text="📈 Статистика")],
+            [
+                KeyboardButton(
+                    text="📖 Гайд по боту",
+                    web_app=WebAppInfo(url=GUIDE_URL)
+                ),
+                KeyboardButton(text="📈 Статистика"),
+            ],
             [KeyboardButton(
                 text="🤖 Помощник",
                 web_app=WebAppInfo(url=assistant_url)
@@ -168,17 +176,6 @@ async def sections_menu(message: Message):
         reply_markup=get_sections_keyboard(),
     )
 
-
-@dp.message(F.text == "📖 Гайд по боту")
-async def guide_button_handler(message: Message):
-    await message.answer(
-        "📖 Гайд по боту:",
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="📖 Открыть гайд", url="https://telegra.ph/bot-06-28-19")]
-            ]
-        ),
-    )
 
 @dp.message(F.text == "📈 Статистика")
 async def stats_button_handler(message: Message):
