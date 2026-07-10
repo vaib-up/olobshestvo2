@@ -73,12 +73,14 @@ def get_main_keyboard(user_id: int = None):
 
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📚 Разделы")],
             [
-                KeyboardButton(text="📖 Гайд по боту"),
+            KeyboardButton(text="📚 Разделы"),
+            KeyboardButton(text="📖 Гайд по боту"),
+             ],
+            [
+                KeyboardButton(text="🏆 Рейтинг"),
                 KeyboardButton(text="📈 Статистика"),
             ],
-            [KeyboardButton(text="🏆 Рейтинг")],
             [
                 KeyboardButton(
                     text="🤖 Помощник",
@@ -309,9 +311,10 @@ async def leaderboard_button_handler(message: Message):
     lines.extend([
         "",
         "Вы пока не участвуете в рейтинге.",
+        "",
         "Если вступить, другим пользователям будут видны:",
         "• ваш ник (имя в Telegram);",
-        "• ваш username (если он установлен);",
+        "• ваш username;",
         "• ваш суммарный счёт;",
         "• ваше место в рейтинге.",
         "",
