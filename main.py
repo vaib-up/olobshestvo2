@@ -10,7 +10,14 @@ from aiogram.filters import CommandStart, Command
 
 from dotenv import load_dotenv
 
-from db import init_db, save_first_attempt, get_user_stats, save_error
+from db import (
+    init_db,
+    save_first_attempt,
+    get_user_stats,
+    save_error,
+    get_leaderboard,
+    get_user_leaderboard_entry,
+)
 
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
@@ -46,25 +53,31 @@ SECTION_TOPICS_URLS = {
 def get_main_keyboard(user_id: int = None):
     assistant_url = "https://olobshestvo2.online/miniapp/index.html"
     mine_url = "https://olobshestvo2.online/mine/index.html"
+
     if user_id:
         assistant_url += f"?uid={user_id}"
         mine_url += f"?uid={user_id}"
+
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📚 Разделы")],
             [
-                KeyboardButton(
-                    text="📖 Гайд по боту"),
+                KeyboardButton(text="📖 Гайд по боту"),
                 KeyboardButton(text="📈 Статистика"),
             ],
-            [KeyboardButton(
-                text="🤖 Помощник",
-                web_app=WebAppInfo(url=assistant_url)
-            )],
-            [KeyboardButton(
-                text="⛏️ Шахта Знаний",
-                web_app=WebAppInfo(url=mine_url)
-            )],
+            [KeyboardButton(text="🏆 Рейтинг")],
+            [
+                KeyboardButton(
+                    text="🤖 Помощник",
+                    web_app=WebAppInfo(url=assistant_url)
+                )
+            ],
+            [
+                KeyboardButton(
+                    text="⛏️ Шахта Знаний",
+                    web_app=WebAppInfo(url=mine_url)
+                )
+            ],
         ],
         resize_keyboard=True,
         input_field_placeholder="Выберите действие...",
@@ -188,6 +201,65 @@ async def sections_menu(message: Message):
 async def stats_button_handler(message: Message):
     await cmd_stats(message)
 
+@dp.message(F.text == "🏆 Рейтинг")
+async def leaderboard_button_handler(message: Message):
+    top = get_leaderboard(limit=10)
+
+    if not top:
+        await message.answer(
+            "🏆 Рейтинг пока пуст.\n\n"
+            "Пока ни один пользователь не присоединился к рейтингу.",
+            reply_markup=get_main_keyboard(message.from_user.id),
+        )
+        return
+
+    lines = [
+        "🏆 Общий рейтинг",
+        "",
+    ]
+
+    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+
+    for entry in top:
+        place = entry["place"]
+        medal = medals.get(place, f"{place}.")
+        display_name = entry["display_name"].strip() if entry["display_name"] else f"User {entry['user_id']}"
+        username = entry["username"]
+        score = entry["sum_score"]
+        total = entry["sum_total"]
+        tests_count = entry["tests_count"]
+
+        if username:
+            user_label = f"{display_name} (@{username})"
+        else:
+            user_label = display_name
+
+        if total:
+            percent = score / total * 100
+            result_text = f"{score}/{total} ({percent:.1f}%)"
+        else:
+            result_text = f"{score} баллов"
+
+        lines.append(
+            f"{medal} {user_label} — {result_text}, блоков: {tests_count}"
+        )
+
+    me = get_user_leaderboard_entry(message.from_user.id)
+    if me and me["rating_opt_in"] and me["place"]:
+        my_score = me["sum_score"]
+        my_total = me["sum_total"]
+        my_percent = (my_score / my_total * 100) if my_total else 0.0
+
+        lines.extend([
+            "",
+            f"Ваше место: {me['place']}",
+            f"Ваш счёт: {my_score}/{my_total} ({my_percent:.1f}%)",
+        ])
+
+    await message.answer(
+        "\n".join(lines),
+        reply_markup=get_main_keyboard(message.from_user.id),
+    )
 
 @dp.message(Command("stats"))
 async def cmd_stats(message: Message):
