@@ -29,6 +29,17 @@ import asyncio
 asyncio.set_event_loop(asyncio.new_event_loop())
 dp = Dispatcher()
 
+def refresh_leaderboard_profile(user):
+    user_id = user.id
+    username = user.username
+    display_name = user.full_name or f"User {user_id}"
+
+    upsert_leaderboard_user(
+        user_id=user_id,
+        username=username,
+        display_name=display_name,
+    )
+
 # ========== ЗАГРУЗКА ТЕСТОВ ==========
 
 def load_tests():
@@ -202,6 +213,8 @@ async def guide_button_handler(message: Message):
 
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
+    refresh_leaderboard_profile(message.from_user)
+
     await message.answer(
         "Привет! Выберите действие:",
         reply_markup=get_main_keyboard(message.from_user.id),
@@ -210,6 +223,7 @@ async def cmd_start(message: Message):
 
 @dp.message(F.text == "📚 Разделы")
 async def sections_menu(message: Message):
+    refresh_leaderboard_profile(message.from_user)
     await message.answer(
         "Выберите раздел:",
         reply_markup=get_sections_keyboard(),
@@ -218,12 +232,16 @@ async def sections_menu(message: Message):
 
 @dp.message(F.text == "📈 Статистика")
 async def stats_button_handler(message: Message):
+    refresh_leaderboard_profile(message.from_user)
     await cmd_stats(message)
 
 @dp.message(F.text == "🏆 Рейтинг")
 async def leaderboard_button_handler(message: Message):
     user = message.from_user
+    refresh_leaderboard_profile(user)
     user_id = user.id
+
+    top = get_leaderboard(limit=10)
     username = user.username
     display_name = user.full_name or f"User {user_id}"
 
@@ -308,6 +326,8 @@ async def leaderboard_button_handler(message: Message):
 @dp.callback_query(F.data == "leaderboard_opt_in_yes")
 async def leaderboard_opt_in_yes(callback: CallbackQuery):
     user = callback.from_user
+    refresh_leaderboard_profile(user)
+
     user_id = user.id
     username = user.username
     display_name = user.full_name or f"User {user_id}"
@@ -343,6 +363,8 @@ async def leaderboard_opt_in_yes(callback: CallbackQuery):
 @dp.callback_query(F.data == "leaderboard_opt_in_no")
 async def leaderboard_opt_in_no(callback: CallbackQuery):
     user = callback.from_user
+    refresh_leaderboard_profile(user)
+
     user_id = user.id
     username = user.username
     display_name = user.full_name or f"User {user_id}"
