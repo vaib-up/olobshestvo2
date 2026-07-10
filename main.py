@@ -17,6 +17,8 @@ from db import (
     save_error,
     get_leaderboard,
     get_user_leaderboard_entry,
+    upsert_leaderboard_user,
+    set_leaderboard_consent,
 )
 
 load_dotenv()
@@ -167,6 +169,23 @@ def get_stats_back_keyboard():
         ]
     )
 
+def get_leaderboard_consent_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Согласен участвовать",
+                    callback_data="leaderboard_opt_in_yes",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ Не вступать",
+                    callback_data="leaderboard_opt_in_no",
+                )
+            ],
+        ]
+    )
 
 # ========== ОБРАБОТЧИКИ СООБЩЕНИЙ ==========
 
@@ -203,48 +222,55 @@ async def stats_button_handler(message: Message):
 
 @dp.message(F.text == "🏆 Рейтинг")
 async def leaderboard_button_handler(message: Message):
-    top = get_leaderboard(limit=10)
+    user = message.from_user
+    user_id = user.id
+    username = user.username
+    display_name = user.full_name or f"User {user_id}"
 
-    if not top:
-        await message.answer(
-            "🏆 Рейтинг пока пуст.\n\n"
-            "Пока ни один пользователь не присоединился к рейтингу.",
-            reply_markup=get_main_keyboard(message.from_user.id),
-        )
-        return
+    upsert_leaderboard_user(
+        user_id=user_id,
+        username=username,
+        display_name=display_name,
+    )
+
+    top = get_leaderboard(limit=10)
 
     lines = [
         "🏆 Общий рейтинг",
         "",
     ]
 
-    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+    if not top:
+        lines.append("Пока рейтинг пуст — ещё никто не присоединился.")
+    else:
+        medals = {1: "🥇", 2: "🥈", 3: "🥉"}
 
-    for entry in top:
-        place = entry["place"]
-        medal = medals.get(place, f"{place}.")
-        display_name = entry["display_name"].strip() if entry["display_name"] else f"User {entry['user_id']}"
-        username = entry["username"]
-        score = entry["sum_score"]
-        total = entry["sum_total"]
-        tests_count = entry["tests_count"]
+        for entry in top:
+            place = entry["place"]
+            medal = medals.get(place, f"{place}.")
+            entry_name = entry["display_name"].strip() if entry["display_name"] else f"User {entry['user_id']}"
+            entry_username = entry["username"]
+            score = entry["sum_score"]
+            total = entry["sum_total"]
+            tests_count = entry["tests_count"]
 
-        if username:
-            user_label = f"{display_name} (@{username})"
-        else:
-            user_label = display_name
+            if entry_username:
+                user_label = f"{entry_name} (@{entry_username})"
+            else:
+                user_label = entry_name
 
-        if total:
-            percent = score / total * 100
-            result_text = f"{score}/{total} ({percent:.1f}%)"
-        else:
-            result_text = f"{score} баллов"
+            if total:
+                percent = score / total * 100
+                result_text = f"{score}/{total} ({percent:.1f}%)"
+            else:
+                result_text = f"{score} баллов"
 
-        lines.append(
-            f"{medal} {user_label} — {result_text}, блоков: {tests_count}"
-        )
+            lines.append(
+                f"{medal} {user_label} — {result_text}, блоков: {tests_count}"
+            )
 
-    me = get_user_leaderboard_entry(message.from_user.id)
+    me = get_user_leaderboard_entry(user_id)
+
     if me and me["rating_opt_in"] and me["place"]:
         my_score = me["sum_score"]
         my_total = me["sum_total"]
@@ -256,10 +282,84 @@ async def leaderboard_button_handler(message: Message):
             f"Ваш счёт: {my_score}/{my_total} ({my_percent:.1f}%)",
         ])
 
+        await message.answer(
+            "\n".join(lines),
+            reply_markup=get_main_keyboard(user_id),
+        )
+        return
+
+    lines.extend([
+        "",
+        "Вы пока не участвуете в рейтинге.",
+        "Если вступить, другим пользователям будут видны:",
+        "• ваш ник (имя в Telegram);",
+        "• ваш username (если он установлен);",
+        "• ваш суммарный счёт;",
+        "• ваше место в рейтинге.",
+        "",
+        "Нажимая кнопку согласия, вы разрешаете показывать эти данные в общем рейтинге.",
+    ])
+
     await message.answer(
         "\n".join(lines),
-        reply_markup=get_main_keyboard(message.from_user.id),
+        reply_markup=get_leaderboard_consent_keyboard(),
     )
+
+@dp.callback_query(F.data == "leaderboard_opt_in_yes")
+async def leaderboard_opt_in_yes(callback: CallbackQuery):
+    user = callback.from_user
+    user_id = user.id
+    username = user.username
+    display_name = user.full_name or f"User {user_id}"
+
+    set_leaderboard_consent(
+        user_id=user_id,
+        consent=True,
+        username=username,
+        display_name=display_name,
+    )
+
+    me = get_user_leaderboard_entry(user_id)
+
+    if me and me["sum_total"]:
+        percent = me["sum_score"] / me["sum_total"] * 100
+        score_text = f"{me['sum_score']}/{me['sum_total']} ({percent:.1f}%)"
+    elif me:
+        score_text = f"{me['sum_score']} баллов"
+    else:
+        score_text = "0 баллов"
+
+    place_text = me["place"] if me and me["place"] else "ещё не определено"
+
+    await callback.message.answer(
+        "✅ Вы вступили в рейтинг.\n\n"
+        f"Ваше место: {place_text}\n"
+        f"Ваш текущий счёт: {score_text}",
+        reply_markup=get_main_keyboard(user_id),
+    )
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "leaderboard_opt_in_no")
+async def leaderboard_opt_in_no(callback: CallbackQuery):
+    user = callback.from_user
+    user_id = user.id
+    username = user.username
+    display_name = user.full_name or f"User {user_id}"
+
+    set_leaderboard_consent(
+        user_id=user_id,
+        consent=False,
+        username=username,
+        display_name=display_name,
+    )
+
+    await callback.message.answer(
+        "Хорошо, вы не будете добавлены в общий рейтинг.\n\n"
+        "Просматривать рейтинг других пользователей вы всё равно можете по кнопке «🏆 Рейтинг».",
+        reply_markup=get_main_keyboard(user_id),
+    )
+    await callback.answer()
 
 @dp.message(Command("stats"))
 async def cmd_stats(message: Message):
