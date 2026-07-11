@@ -78,8 +78,8 @@ def get_main_keyboard(user_id: int = None):
             KeyboardButton(text="📖 Гайд по боту"),
              ],
             [
-                KeyboardButton(text="🏆 Рейтинг"),
-                KeyboardButton(text="📈 Статистика"),
+                KeyboardButton(text="🏆 Общий рейтинг"),
+                KeyboardButton(text="📈 Личная статистика"),
             ],
             [
                 KeyboardButton(
