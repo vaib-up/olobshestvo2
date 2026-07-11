@@ -402,6 +402,7 @@ async def cmd_stats(message: Message):
 
     lines = [
         "Ваша статистика по первым прохождениям блоков:",
+        "",
         f"Блоков завершено: {tests_count}",
         f"Суммарный результат: {sum_score} из {sum_total} ({percent:.1f}%)",
         "",
