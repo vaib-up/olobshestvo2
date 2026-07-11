@@ -232,12 +232,12 @@ async def sections_menu(message: Message):
     )
 
 
-@dp.message(F.text == "📈 Статистика")
+@dp.message(F.text == "📈 Личная статистика")
 async def stats_button_handler(message: Message):
     refresh_leaderboard_profile(message.from_user)
     await cmd_stats(message)
 
-@dp.message(F.text == "🏆 Рейтинг")
+@dp.message(F.text == "🏆 Общий рейтинг")
 async def leaderboard_button_handler(message: Message):
     user = message.from_user
     refresh_leaderboard_profile(user)
