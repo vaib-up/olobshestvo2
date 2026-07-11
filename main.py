@@ -208,7 +208,7 @@ async def guide_button_handler(message: Message):
         "📖 Гайд по боту:",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="📖 Открыть гайд", url="https://telegra.ph/bot-06-28-19")]
+                [InlineKeyboardButton(text="📖 Открыть гайд", url="https://telegra.ph/Almanah-bota-07-11")]
             ]
         ),
     )
