@@ -74,7 +74,7 @@ def get_main_keyboard(user_id: int = None):
     return ReplyKeyboardMarkup(
         keyboard=[
             [
-            KeyboardButton(text="📚 Разделы / Авторские тесты"),
+            KeyboardButton(text="📚 Разделы"),
             KeyboardButton(text="📖 Гайд по боту"),
              ],
             [
@@ -223,7 +223,7 @@ async def cmd_start(message: Message):
     )
 
 
-@dp.message(F.text == "📚 Разделы / Авторские тесты")
+@dp.message(F.text == "📚 Разделы")
 async def sections_menu(message: Message):
     refresh_leaderboard_profile(message.from_user)
     await message.answer(
