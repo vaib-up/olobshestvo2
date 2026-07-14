@@ -116,6 +116,31 @@ def init_db():
         """
     )
 
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS explain_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            question_text TEXT NOT NULL,
+            correct_answer TEXT,
+            topic TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    cur.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_explain_events_user_created
+        ON explain_events(user_id, created_at DESC)
+        """
+    )
+    cur.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_explain_events_topic
+        ON explain_events(topic)
+        """
+    )
+
     conn.commit()
     conn.close()
 
@@ -200,6 +225,58 @@ def get_last_errors(user_id: int, limit: int = 10):
     conn.close()
     return rows
 
+def save_explain_event(
+    user_id: int,
+    question_text: str,
+    correct_answer: str | None = None,
+    topic: str | None = None,
+):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO explain_events (user_id, question_text, correct_answer, topic)
+        VALUES (?, ?, ?, ?)
+        """,
+        (user_id, question_text, correct_answer, topic),
+    )
+    conn.commit()
+    conn.close()
+
+def get_explain_stats() -> dict:
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("SELECT COUNT(*) FROM explain_events")
+    total_clicks = cur.fetchone()[0] or 0
+
+    cur.execute("SELECT COUNT(DISTINCT user_id) FROM explain_events")
+    unique_users = cur.fetchone()[0] or 0
+
+    conn.close()
+
+    return {
+        "total_clicks": total_clicks,
+        "unique_users": unique_users,
+    }
+
+def get_top_explained_topics(limit: int = 10) -> list[dict]:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT COALESCE(topic, 'Без темы') AS topic, COUNT(*) AS clicks
+        FROM explain_events
+        GROUP BY COALESCE(topic, 'Без темы')
+        ORDER BY clicks DESC, topic ASC
+        LIMIT ?
+        """,
+        (limit,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    return [{"topic": row[0], "clicks": row[1]} for row in rows]
 
 # ── Leaderboard ─────────────────────────────────────────────────────────────
 def upsert_leaderboard_user(user_id: int, username: str | None, display_name: str):
@@ -485,6 +562,12 @@ def get_global_admin_stats() -> dict:
     cur.execute("SELECT COUNT(*) FROM helper_history")
     helper_requests = cur.fetchone()[0] or 0
 
+    cur.execute("SELECT COUNT(*) FROM explain_events")
+    explain_clicks = cur.fetchone()[0] or 0
+
+    cur.execute("SELECT COUNT(DISTINCT user_id) FROM explain_events")
+    explain_users = cur.fetchone()[0] or 0
+
     conn.close()
 
     return {
@@ -503,6 +586,8 @@ def get_global_admin_stats() -> dict:
         "theory_requests": theory_requests,
         "helper_users": helper_users,
         "helper_requests": helper_requests,
+        "explain_clicks": explain_clicks,
+        "explain_users": explain_users,
     }
 
 

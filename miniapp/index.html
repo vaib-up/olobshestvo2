@@ -309,18 +309,28 @@ function renderErrors(errors) {
 
 async function explainError(idx, btn) {
   const question = decodeURIComponent(btn.dataset.question);
-  const correct  = decodeURIComponent(btn.dataset.correct);
-  const section  = btn.dataset.section || null;
-  const ansBox   = document.getElementById(`error-ans-${idx}`);
+  const correct = decodeURIComponent(btn.dataset.correct);
+  const section = btn.dataset.section || null;
+  const ansBox = document.getElementById(`error-ans-${idx}`);
 
   btn.disabled = true;
   btn.textContent = '⏳ Загрузка...';
+
   try {
-    const res  = await fetch(`${API_BASE}/explain_error`, {
+    const explainUrl = USER_ID
+      ? `${API_BASE}/explain_error?tg_id=${USER_ID}`
+      : `${API_BASE}/explain_error`;
+
+    const res = await fetch(explainUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question_text: question, correct_answer: correct, section }),
+      body: JSON.stringify({
+        question_text: question,
+        correct_answer: correct,
+        section
+      }),
     });
+
     const data = await res.json();
     ansBox.textContent = data.answer;
     ansBox.classList.add('visible');

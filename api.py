@@ -7,9 +7,13 @@ from pydantic import BaseModel
 from rag import get_theory, explain_error
 from db import (
     get_last_errors,
-    get_mine_progress, save_mine_progress,
-    get_theory_history, save_theory_history_item,
-    get_helper_history, save_helper_history_item,
+    get_mine_progress,
+    save_mine_progress,
+    get_theory_history,
+    save_theory_history_item,
+    get_helper_history,
+    save_helper_history_item,
+    save_explain_event,
 )
 
 app = FastAPI()
@@ -85,7 +89,15 @@ def theory(req: TheoryRequest):
 
 
 @app.post("/explain_error")
-def explain(req: ErrorExplainRequest):
+def explain(req: ErrorExplainRequest, tg_id: int | None = None):
+    if tg_id is not None:
+        save_explain_event(
+            user_id=tg_id,
+            question_text=req.question_text,
+            correct_answer=req.correct_answer,
+            topic=req.section,
+        )
+
     answer = explain_error(req.question_text, req.correct_answer, section=req.section)
     return {"answer": clean_llm_output(answer)}
 
