@@ -439,6 +439,8 @@ async def global_stats_handler(message: Message):
         f"Запросов в Теорию: {stats['theory_requests']}\n\n"
         f"Пользователи Помощника: {stats['helper_users']}\n"
         f"Запросов в Помощник: {stats['helper_requests']}"
+        f"Нажатий «Объяснить»: {stats['explain_clicks']}\n"
+        f"Пользователей, нажимавших «Объяснить»: {stats['explain_users']}\n\n"
     )
 
     await message.answer(
