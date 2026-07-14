@@ -96,7 +96,6 @@ def init_db():
         "CREATE INDEX IF NOT EXISTS idx_helper_history_user ON helper_history(user_id, ts DESC)"
     )
 
-    # Участники общего рейтинга
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS leaderboard_users (
@@ -110,7 +109,6 @@ def init_db():
         )
         """
     )
-
     cur.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_leaderboard_opt_in
@@ -204,7 +202,6 @@ def get_last_errors(user_id: int, limit: int = 10):
 
 
 # ── Leaderboard ─────────────────────────────────────────────────────────────
-
 def upsert_leaderboard_user(user_id: int, username: str | None, display_name: str):
     conn = get_conn()
     cur = conn.cursor()
@@ -445,8 +442,71 @@ def get_user_leaderboard_entry(user_id: int):
     }
 
 
-# ── Mine progress ───────────────────────────────────────────────────────────
+def get_global_admin_stats() -> dict:
+    conn = get_conn()
+    cur = conn.cursor()
 
+    cur.execute("SELECT COUNT(DISTINCT user_id) FROM leaderboard_users")
+    leaderboard_known_users = cur.fetchone()[0] or 0
+
+    cur.execute("SELECT COUNT(*) FROM leaderboard_users WHERE rating_opt_in = 1")
+    leaderboard_opted_in = cur.fetchone()[0] or 0
+
+    cur.execute("SELECT COUNT(DISTINCT user_id) FROM first_attempts")
+    tested_users = cur.fetchone()[0] or 0
+
+    cur.execute("SELECT COUNT(*) FROM first_attempts")
+    completed_blocks = cur.fetchone()[0] or 0
+
+    cur.execute("SELECT COALESCE(SUM(score), 0), COALESCE(SUM(total), 0) FROM first_attempts")
+    total_score, total_questions = cur.fetchone()
+
+    cur.execute("SELECT COUNT(DISTINCT user_id) FROM user_errors")
+    users_with_errors = cur.fetchone()[0] or 0
+
+    cur.execute("SELECT COUNT(*) FROM user_errors")
+    total_errors = cur.fetchone()[0] or 0
+
+    cur.execute("SELECT COUNT(DISTINCT user_id) FROM mine_progress")
+    mine_users = cur.fetchone()[0] or 0
+
+    cur.execute("SELECT COALESCE(SUM(total_answers), 0), COALESCE(SUM(correct_answers), 0) FROM mine_progress")
+    mine_total_answers, mine_correct_answers = cur.fetchone()
+
+    cur.execute("SELECT COUNT(DISTINCT user_id) FROM theory_history")
+    theory_users = cur.fetchone()[0] or 0
+
+    cur.execute("SELECT COUNT(*) FROM theory_history")
+    theory_requests = cur.fetchone()[0] or 0
+
+    cur.execute("SELECT COUNT(DISTINCT user_id) FROM helper_history")
+    helper_users = cur.fetchone()[0] or 0
+
+    cur.execute("SELECT COUNT(*) FROM helper_history")
+    helper_requests = cur.fetchone()[0] or 0
+
+    conn.close()
+
+    return {
+        "leaderboard_known_users": leaderboard_known_users,
+        "leaderboard_opted_in": leaderboard_opted_in,
+        "tested_users": tested_users,
+        "completed_blocks": completed_blocks,
+        "total_score": total_score or 0,
+        "total_questions": total_questions or 0,
+        "users_with_errors": users_with_errors,
+        "total_errors": total_errors,
+        "mine_users": mine_users,
+        "mine_total_answers": mine_total_answers or 0,
+        "mine_correct_answers": mine_correct_answers or 0,
+        "theory_users": theory_users,
+        "theory_requests": theory_requests,
+        "helper_users": helper_users,
+        "helper_requests": helper_requests,
+    }
+
+
+# ── Mine progress ───────────────────────────────────────────────────────────
 def get_mine_progress(user_id: int) -> dict | None:
     conn = get_conn()
     cur = conn.cursor()
@@ -532,7 +592,6 @@ def save_mine_progress(user_id: int, data: dict):
 
 
 # ── Вспомогательная функция — работает для обеих таблиц ──────────────────
-
 def _get_history(table: str, user_id: int, limit: int = 10) -> list[dict]:
     conn = get_conn()
     cur = conn.cursor()
@@ -575,7 +634,6 @@ def _save_history_item(table: str, user_id: int, topic: str, answer: str, ts: in
 
 
 # ── Theory history (Шахта) ─────────────────────────────────────────────
-
 def get_theory_history(user_id: int, limit: int = 10) -> list[dict]:
     return _get_history("theory_history", user_id, limit)
 
@@ -585,7 +643,6 @@ def save_theory_history_item(user_id: int, topic: str, answer: str, ts: int):
 
 
 # ── Helper history (Помощник) ───────────────────────────────────────────
-
 def get_helper_history(user_id: int, limit: int = 10) -> list[dict]:
     return _get_history("helper_history", user_id, limit)
 

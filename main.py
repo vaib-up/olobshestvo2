@@ -1,13 +1,18 @@
 import os
 import asyncio
 import json
+
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
-    Message, ReplyKeyboardMarkup, KeyboardButton,
-    InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery,  WebAppInfo,
+    Message,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    CallbackQuery,
+    WebAppInfo,
 )
 from aiogram.filters import CommandStart, Command
-
 from dotenv import load_dotenv
 
 from db import (
@@ -19,15 +24,19 @@ from db import (
     get_user_leaderboard_entry,
     upsert_leaderboard_user,
     set_leaderboard_consent,
+    get_global_admin_stats,
 )
 
 load_dotenv()
+
 TOKEN = os.getenv("BOT_TOKEN")
+BOT_OWNER_ID = int(os.getenv("BOT_OWNER_ID", "0"))
 
 bot = Bot(token=TOKEN)
-import asyncio
+
 asyncio.set_event_loop(asyncio.new_event_loop())
 dp = Dispatcher()
+
 
 def refresh_leaderboard_profile(user):
     user_id = user.id
@@ -40,29 +49,30 @@ def refresh_leaderboard_profile(user):
         display_name=display_name,
     )
 
-# ========== ЗАГРУЗКА ТЕСТОВ ==========
 
+# ========== ЗАГРУЗКА ТЕСТОВ ==========
 def load_tests():
     with open("tests.json", "r", encoding="utf-8") as f:
         return json.load(f)
+
 
 TESTS = load_tests()
 
 # {user_id: {"test_id": str, "type": str, "current": int, "score": int, "total": int}}
 user_progress = {}
 
-# ========== ССЫЛКИ НА СТАТЬИ TELEGRAPH ==========
 
+# ========== ССЫЛКИ НА СТАТЬИ TELEGRAPH ==========
 SECTION_TOPICS_URLS = {
-    "law":  "https://telegra.ph/Temy-testovzadach-po-pravu-06-27",
+    "law": "https://telegra.ph/Temy-testovzadach-po-pravu-06-27",
     "econ": "https://telegra.ph/Temy-testovzadach-po-ehkonomike-06-27",
-    "pol":  "https://telegra.ph/Temy-testovzadach-po-politologii-06-27",
+    "pol": "https://telegra.ph/Temy-testovzadach-po-politologii-06-27",
     "phil": "https://telegra.ph/Temy-testovzadach-po-filosofii-06-27",
-    "soc":  "https://telegra.ph/Temy-testovzadach-po-sociologii-06-27",
+    "soc": "https://telegra.ph/Temy-testovzadach-po-sociologii-06-27",
 }
 
-# ========== КЛАВИАТУРЫ ==========
 
+# ========== КЛАВИАТУРЫ ==========
 def get_main_keyboard(user_id: int = None):
     assistant_url = "https://olobshestvo2.online/miniapp/index.html"
     mine_url = "https://olobshestvo2.online/mine/index.html"
@@ -71,29 +81,39 @@ def get_main_keyboard(user_id: int = None):
         assistant_url += f"?uid={user_id}"
         mine_url += f"?uid={user_id}"
 
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [
+    keyboard = [
+        [
             KeyboardButton(text="📚 Разделы"),
             KeyboardButton(text="📖 Гайд по боту"),
-             ],
-            [
-                KeyboardButton(text="🏆 Общий рейтинг"),
-                KeyboardButton(text="📈 Личная статистика"),
-            ],
+        ],
+        [
+            KeyboardButton(text="🏆 Общий рейтинг"),
+            KeyboardButton(text="📈 Личная статистика"),
+        ],
+    ]
+
+    if user_id == BOT_OWNER_ID:
+        keyboard.append([KeyboardButton(text="🛠 Общая статистика")])
+
+    keyboard.extend(
+        [
             [
                 KeyboardButton(
                     text="🤖 Помощник",
-                    web_app=WebAppInfo(url=assistant_url)
+                    web_app=WebAppInfo(url=assistant_url),
                 )
             ],
             [
                 KeyboardButton(
                     text="⛏️ Шахта Знаний",
-                    web_app=WebAppInfo(url=mine_url)
+                    web_app=WebAppInfo(url=mine_url),
                 )
             ],
-        ],
+        ]
+    )
+
+    return ReplyKeyboardMarkup(
+        keyboard=keyboard,
         resize_keyboard=True,
         input_field_placeholder="Выберите действие...",
     )
@@ -152,11 +172,13 @@ def get_yes_no_keyboard(test_id: str, q_num: int):
 def get_options_keyboard(test_id: str, q_num: int, options: list):
     letters = ["А", "Б", "В", "Г"]
     buttons = []
+
     for i, _ in enumerate(options):
         letter = letters[i]
         buttons.append(
             [InlineKeyboardButton(text=letter, callback_data=f"ans|{test_id}|тест|{q_num}|{letter.lower()}")]
         )
+
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -175,12 +197,14 @@ def get_back_to_types_keyboard(test_id: str):
         ]
     )
 
+
 def get_stats_back_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="↩️ К разделам", callback_data="back_sections")]
         ]
     )
+
 
 def get_leaderboard_consent_keyboard():
     return InlineKeyboardMarkup(
@@ -200,8 +224,8 @@ def get_leaderboard_consent_keyboard():
         ]
     )
 
-# ========== ОБРАБОТЧИКИ СООБЩЕНИЙ ==========
 
+# ========== ОБРАБОТЧИКИ СООБЩЕНИЙ ==========
 @dp.message(F.text == "📖 Гайд по боту")
 async def guide_button_handler(message: Message):
     await message.answer(
@@ -213,10 +237,10 @@ async def guide_button_handler(message: Message):
         ),
     )
 
+
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     refresh_leaderboard_profile(message.from_user)
-
     await message.answer(
         "Привет! Выберите действие:",
         reply_markup=get_main_keyboard(message.from_user.id),
@@ -237,21 +261,12 @@ async def stats_button_handler(message: Message):
     refresh_leaderboard_profile(message.from_user)
     await cmd_stats(message)
 
+
 @dp.message(F.text == "🏆 Общий рейтинг")
 async def leaderboard_button_handler(message: Message):
     user = message.from_user
     refresh_leaderboard_profile(user)
     user_id = user.id
-
-    top = get_leaderboard(limit=10)
-    username = user.username
-    display_name = user.full_name or f"User {user_id}"
-
-    upsert_leaderboard_user(
-        user_id=user_id,
-        username=username,
-        display_name=display_name,
-    )
 
     top = get_leaderboard(limit=10)
 
@@ -285,9 +300,7 @@ async def leaderboard_button_handler(message: Message):
             else:
                 result_text = f"{score} баллов"
 
-            lines.append(
-                f"{medal} {user_label} — {result_text}, блоков: {tests_count}"
-            )
+            lines.append(f"{medal} {user_label} — {result_text}, блоков: {tests_count}")
 
     me = get_user_leaderboard_entry(user_id)
 
@@ -296,11 +309,13 @@ async def leaderboard_button_handler(message: Message):
         my_total = me["sum_total"]
         my_percent = (my_score / my_total * 100) if my_total else 0.0
 
-        lines.extend([
-            "",
-            f"Ваше место: {me['place']}",
-            f"Ваш счёт: {my_score}/{my_total} ({my_percent:.1f}%)",
-        ])
+        lines.extend(
+            [
+                "",
+                f"Ваше место: {me['place']}",
+                f"Ваш счёт: {my_score}/{my_total} ({my_percent:.1f}%)",
+            ]
+        )
 
         await message.answer(
             "\n".join(lines),
@@ -308,23 +323,26 @@ async def leaderboard_button_handler(message: Message):
         )
         return
 
-    lines.extend([
-        "",
-        "Вы пока не участвуете в рейтинге.",
-        "",
-        "Если вступить, другим пользователям будут видны:",
-        "• ваш ник (имя в Telegram);",
-        "• ваш username;",
-        "• ваш суммарный счёт;",
-        "• ваше место в рейтинге.",
-        "",
-        "Нажимая кнопку согласия, вы разрешаете показывать эти данные в общем рейтинге.",
-    ])
+    lines.extend(
+        [
+            "",
+            "Вы пока не участвуете в рейтинге.",
+            "",
+            "Если вступить, другим пользователям будут видны:",
+            "• ваш ник (имя в Telegram);",
+            "• ваш username;",
+            "• ваш суммарный счёт;",
+            "• ваше место в рейтинге.",
+            "",
+            "Нажимая кнопку согласия, вы разрешаете показывать эти данные в общем рейтинге.",
+        ]
+    )
 
     await message.answer(
         "\n".join(lines),
         reply_markup=get_leaderboard_consent_keyboard(),
     )
+
 
 @dp.callback_query(F.data == "leaderboard_opt_in_yes")
 async def leaderboard_opt_in_yes(callback: CallbackQuery):
@@ -381,10 +399,53 @@ async def leaderboard_opt_in_no(callback: CallbackQuery):
 
     await callback.message.answer(
         "Хорошо, вы не будете добавлены в общий рейтинг.\n\n"
-        "Просматривать рейтинг других пользователей вы всё равно можете по кнопке «🏆 Рейтинг».",
+        "Просматривать рейтинг других пользователей вы всё равно можете по кнопке «🏆 Общий рейтинг».",
         reply_markup=get_main_keyboard(user_id),
     )
     await callback.answer()
+
+
+@dp.message(F.text == "🛠 Общая статистика")
+async def global_stats_handler(message: Message):
+    if message.from_user.id != BOT_OWNER_ID:
+        await message.answer("У вас нет доступа к этой функции.")
+        return
+
+    refresh_leaderboard_profile(message.from_user)
+    stats = get_global_admin_stats()
+
+    overall_percent = (
+        stats["total_score"] / stats["total_questions"] * 100
+        if stats["total_questions"] else 0.0
+    )
+
+    mine_percent = (
+        stats["mine_correct_answers"] / stats["mine_total_answers"] * 100
+        if stats["mine_total_answers"] else 0.0
+    )
+
+    text = (
+        "🛠 Общая статистика бота\n\n"
+        f"Пользователи в leaderboard_users: {stats['leaderboard_known_users']}\n"
+        f"Участники рейтинга: {stats['leaderboard_opted_in']}\n\n"
+        f"Пользователи с завершёнными блоками: {stats['tested_users']}\n"
+        f"Всего завершённых блоков: {stats['completed_blocks']}\n"
+        f"Общий результат по блокам: {stats['total_score']}/{stats['total_questions']} ({overall_percent:.1f}%)\n\n"
+        f"Пользователи с ошибками: {stats['users_with_errors']}\n"
+        f"Всего сохранённых ошибок: {stats['total_errors']}\n\n"
+        f"Пользователи Шахты знаний: {stats['mine_users']}\n"
+        f"Ответов в Шахте: {stats['mine_correct_answers']}/{stats['mine_total_answers']} ({mine_percent:.1f}%)\n\n"
+        f"Пользователи Теории: {stats['theory_users']}\n"
+        f"Запросов в Теорию: {stats['theory_requests']}\n\n"
+        f"Пользователи Помощника: {stats['helper_users']}\n"
+        f"Запросов в Помощник: {stats['helper_requests']}"
+    )
+
+    await message.answer(
+        text,
+        reply_markup=get_main_keyboard(message.from_user.id),
+    )
+
 
 @dp.message(Command("stats"))
 async def cmd_stats(message: Message):
@@ -394,7 +455,7 @@ async def cmd_stats(message: Message):
     if tests_count == 0:
         await message.answer(
             "Пока нет ни одного завершённого блока. Пройдите тесты с вариантами или да/нет.",
-            reply_markup=get_stats_back_keyboard()
+            reply_markup=get_stats_back_keyboard(),
         )
         return
 
@@ -428,6 +489,7 @@ async def cmd_stats(message: Message):
 
         section_title = section_titles.get(section_code, section_code)
         block_title = type_titles.get(block_type, block_type)
+
         lines.append(f"• {section_title}, выпуск {num}, {block_title}: {score}/{total}")
 
     text = "\n".join(lines)
@@ -441,10 +503,11 @@ async def back_from_sections_menu(message: Message):
         reply_markup=get_main_keyboard(message.from_user.id),
     )
 
+
 @dp.message(F.text == "📊 Экономика")
 async def economics_handler(message: Message):
     await message.answer(
-        "📊 <b>Экономика</b>\n\nВыберите подраздел:",
+        "📊 **Экономика**\n\nВыберите подраздел:",
         reply_markup=get_subsection_keyboard("econ"),
         parse_mode="HTML",
     )
@@ -453,7 +516,7 @@ async def economics_handler(message: Message):
 @dp.message(F.text == "🏛 Политология")
 async def politics_handler(message: Message):
     await message.answer(
-        "🏛 <b>Политология</b>\n\nВыберите подраздел:",
+        "🏛 **Политология**\n\nВыберите подраздел:",
         reply_markup=get_subsection_keyboard("pol"),
         parse_mode="HTML",
     )
@@ -462,7 +525,7 @@ async def politics_handler(message: Message):
 @dp.message(F.text == "⚖️ Право")
 async def law_handler(message: Message):
     await message.answer(
-        "⚖️ <b>Право</b>\n\nВыберите подраздел:",
+        "⚖️ **Право**\n\nВыберите подраздел:",
         reply_markup=get_subsection_keyboard("law"),
         parse_mode="HTML",
     )
@@ -471,7 +534,7 @@ async def law_handler(message: Message):
 @dp.message(F.text == "🤔 Философия")
 async def philosophy_handler(message: Message):
     await message.answer(
-        "🤔 <b>Философия</b>\n\nВыберите подраздел:",
+        "🤔 **Философия**\n\nВыберите подраздел:",
         reply_markup=get_subsection_keyboard("phil"),
         parse_mode="HTML",
     )
@@ -480,7 +543,7 @@ async def philosophy_handler(message: Message):
 @dp.message(F.text == "👥 Социология")
 async def sociology_handler(message: Message):
     await message.answer(
-        "👥 <b>Социология</b>\n\nВыберите подраздел:",
+        "👥 **Социология**\n\nВыберите подраздел:",
         reply_markup=get_subsection_keyboard("soc"),
         parse_mode="HTML",
     )
@@ -500,7 +563,6 @@ async def extended_answer_handler(message: Message):
 
     user_text = message.text
     correct_answer = questions[q_num].get("answer", "Ответ не задан.")
-
     has_next = (q_num + 1 < progress["total"])
 
     if has_next:
@@ -519,8 +581,8 @@ async def extended_answer_handler(message: Message):
     else:
         del user_progress[user_id]
 
-# ========== ВЫБОР ВЫПУСКА ==========
 
+# ========== ВЫБОР ВЫПУСКА ==========
 @dp.callback_query(
     F.data.startswith("law_test")
     | F.data.startswith("soc_test")
@@ -547,8 +609,8 @@ async def any_test_selected(callback: CallbackQuery):
         "phil": "🤔 Философия",
     }
     section_title = section_titles.get(section_code, "Тест")
-    text = f"{section_title} — Выпуск №{num}\n\nВыберите тип вопросов:"
 
+    text = f"{section_title} — Выпуск №{num}\n\nВыберите тип вопросов:"
     await callback.message.answer(
         text,
         reply_markup=get_question_type_keyboard(test_id),
@@ -556,22 +618,21 @@ async def any_test_selected(callback: CallbackQuery):
     )
     await callback.answer()
 
-# ========== ЗАПУСК КОНКРЕТНОГО ТИПА ==========
 
+# ========== ЗАПУСК КОНКРЕТНОГО ТИПА ==========
 @dp.callback_query(F.data.startswith("type|"))
 async def question_type_selected(callback: CallbackQuery):
     _, test_id, q_type = callback.data.split("|")
     user_id = callback.from_user.id
 
     questions = TESTS[test_id][q_type]
-
     user_progress[user_id] = {
         "test_id": test_id,
         "type": q_type,
         "current": 0,
         "score": 0,
         "total": len(questions),
-        "wrong": []
+        "wrong": [],
     }
 
     first_q = questions[0]["question"]
@@ -600,8 +661,8 @@ async def question_type_selected(callback: CallbackQuery):
 
     await callback.answer()
 
-# ========== ОБРАБОТКА ОТВЕТОВ ==========
 
+# ========== ОБРАБОТКА ОТВЕТОВ ==========
 @dp.callback_query(F.data.startswith("ans|"))
 async def answer_handler(callback: CallbackQuery):
     _, test_id, q_type, q_num_str, user_ans = callback.data.split("|")
@@ -625,6 +686,7 @@ async def answer_handler(callback: CallbackQuery):
         progress["wrong"].append((q_num, user_ans, correct_ans_raw))
         question_text = questions[q_num]["question"]
         topic = questions[q_num].get("topic", None)
+
         save_error(
             user_id=user_id,
             test_id=test_id,
@@ -669,25 +731,27 @@ async def answer_handler(callback: CallbackQuery):
                 total=progress["total"],
             )
 
-            await callback.message.answer(
-                f"Блок завершён!\n\nВаш результат: {progress['score']} из {progress['total']}.",
-                reply_markup=kb,
-            )
+        await callback.message.answer(
+            f"Блок завершён!\n\nВаш результат: {progress['score']} из {progress['total']}.",
+            reply_markup=kb,
+        )
 
         wrong = progress.get("wrong", [])
-
         if wrong:
             questions = TESTS[test_id][q_type]
             lines = ["Ошибки в этом прохождении:"]
+
             for bad_q_num, bad_user_ans, bad_correct_ans in wrong:
                 q_text = questions[bad_q_num]["question"]
                 user_ans_display = str(bad_user_ans).upper()
                 correct_ans_display = str(bad_correct_ans).upper()
+
                 lines.append(
                     f"\nВопрос {bad_q_num + 1}:\n{q_text}"
                     f"\nВаш ответ: {user_ans_display}"
                     f"\nПравильный ответ: {correct_ans_display}"
                 )
+
             await callback.message.answer("\n".join(lines))
 
         del user_progress[user_id]
@@ -696,7 +760,6 @@ async def answer_handler(callback: CallbackQuery):
 
 
 # ========== СЛЕДУЮЩИЙ РАЗВЁРНУТЫЙ ==========
-
 @dp.callback_query(F.data.startswith("next|"))
 async def next_extended_question(callback: CallbackQuery):
     _, test_id, q_type, _ = callback.data.split("|")
@@ -713,8 +776,10 @@ async def next_extended_question(callback: CallbackQuery):
         q_num = progress["current"]
         q = questions[q_num]["question"]
         topic = questions[q_num].get("topic", "")
+
         await callback.message.answer(
-            f"Вопрос {q_num + 1} из {progress['total']}\nТема: {topic}\n\n{q}\n\nНапишите свой ответ в чате:"
+            f"Вопрос {q_num + 1} из {progress['total']}\n"
+            f"Тема: {topic}\n\n{q}\n\nНапишите свой ответ в чате:"
         )
         await callback.answer()
     else:
@@ -726,16 +791,19 @@ async def next_extended_question(callback: CallbackQuery):
         del user_progress[user_id]
         await callback.answer()
 
-# ========== НАВИГАЦИЯ НАЗАД ==========
 
+# ========== НАВИГАЦИЯ НАЗАД ==========
 @dp.callback_query(F.data.startswith("back_types|"))
 async def back_to_types(callback: CallbackQuery):
     _, test_id = callback.data.split("|")
+
     if test_id not in TESTS:
         await callback.answer("Тест не найден.")
         return
+
     user_id = callback.from_user.id
     user_progress.pop(user_id, None)
+
     await callback.message.answer(
         "Выберите тип вопросов:",
         reply_markup=get_question_type_keyboard(test_id),
@@ -757,18 +825,20 @@ async def back_to_issues(callback: CallbackQuery):
 async def back_to_sections(callback: CallbackQuery):
     user_id = callback.from_user.id
     user_progress.pop(user_id, None)
+
     await callback.message.answer(
         "Выберите раздел:",
         reply_markup=get_sections_keyboard(),
     )
     await callback.answer()
 
-# ========== ЗАПУСК ==========
 
+# ========== ЗАПУСК ==========
 async def main():
     init_db()
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
