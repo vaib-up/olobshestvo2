@@ -532,6 +532,18 @@ def clear_admin_rating(user_id: int):
     conn.commit()
     conn.close()
 
+def clear_all_attempts_for_user(user_id: int):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        DELETE FROM first_attempts
+        WHERE user_id = ?
+        """,
+        (user_id,),
+    )
+    conn.commit()
+    conn.close()
 
 def set_admin_rating(user_id: int, score: int, total: int, label: str = "main"):
     if score < 0 or total < 0:
