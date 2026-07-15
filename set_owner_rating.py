@@ -11,8 +11,8 @@ load_dotenv()
 OWNER_ID = int(os.getenv("BOT_OWNER_ID", "0"))
 
 # ====== НАСТРОЙ ТОЛЬКО ЭТИ ПОЛЯ ======
-TARGET_SCORE = 911
-TARGET_TOTAL = 880
+TARGET_SCORE = 500
+TARGET_TOTAL = 500
 RESET_ONLY = False
 LABEL = "manual"
 # =====================================
