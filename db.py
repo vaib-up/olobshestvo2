@@ -518,6 +518,41 @@ def get_user_leaderboard_entry(user_id: int):
         "place": place_row[0] if place_row else None,
     }
 
+def clear_admin_rating(user_id: int):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        DELETE FROM first_attempts
+        WHERE user_id = ?
+          AND test_id LIKE 'admin_custom_%'
+        """,
+        (user_id,),
+    )
+    conn.commit()
+    conn.close()
+
+
+def set_admin_rating(user_id: int, score: int, total: int, label: str = "main"):
+    if score < 0 or total < 0:
+        raise ValueError("score и total должны быть >= 0")
+    if score > total:
+        raise ValueError("score не может быть больше total")
+
+    clear_admin_rating(user_id)
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO first_attempts (user_id, test_id, score, total)
+        VALUES (?, ?, ?, ?)
+        """,
+        (user_id, f"admin_custom_{label}|тест", score, total),
+    )
+    conn.commit()
+    conn.close()
+
 
 def get_global_admin_stats() -> dict:
     conn = get_conn()
