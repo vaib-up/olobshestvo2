@@ -83,7 +83,7 @@ def get_main_keyboard(user_id: int = None):
 
     keyboard = [
         [
-            KeyboardButton(text="📚 Разделы"),
+            KeyboardButton(text="📚 Задачи"),
             KeyboardButton(text="📖 Гайд по боту"),
         ],
         [
@@ -247,7 +247,7 @@ async def cmd_start(message: Message):
     )
 
 
-@dp.message(F.text == "📚 Разделы")
+@dp.message(F.text == "📚 Задачи")
 async def sections_menu(message: Message):
     refresh_leaderboard_profile(message.from_user)
     await message.answer(
